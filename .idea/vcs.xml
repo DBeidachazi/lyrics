@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$/Taskbar-Lyrics" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/go-musicfox" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/lyric-for-musicfox" vcs="Git" />
+  </component>
+</project>
