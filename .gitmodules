@@ -1,3 +1,6 @@
 [submodule "Taskbar-Lyrics"]
 	path = Taskbar-Lyrics
 	url = https://github.com/mo-jinran/Taskbar-Lyrics
+[submodule "go-musicfox"]
+	path = go-musicfox
+	url = https://github.com/go-musicfox/go-musicfox
