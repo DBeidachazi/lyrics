@@ -4,3 +4,6 @@
 [submodule "go-musicfox"]
 	path = go-musicfox
 	url = https://github.com/go-musicfox/go-musicfox
+[submodule "lyric-for-musicfox"]
+	path = lyric-for-musicfox
+	url = https://github.com/SmileYik/lyric-for-musicfox
