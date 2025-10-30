@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.30)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,8 +14,13 @@ add_library(native SHARED)
 
 target_sources(native
     PUBLIC
-  FILE_SET CXX_MODULES FILES
-"src/window/Renderer.cppm"
+        FILE_SET CXX_MODULES FILES
+            "src/plugin/Config.cppm"
+            "src/taskbar/Registry.cppm"
+            "src/taskbar/Handler.cppm"
+            "src/taskbar/Taskbar.cppm"
+            "src/window/Lyrics.cppm"
+            "src/window/Renderer.cppm"
             "src/window/Window.cppm"
             "src/plugin/Plugin.cppm"
     PRIVATE
@@ -28,3 +33,4 @@ target_link_libraries(native PRIVATE dwrite)
 target_link_libraries(native PRIVATE dxgi)
 target_link_libraries(native PRIVATE dcomp)
 target_link_libraries(native PRIVATE dwmapi)
+target_link_libraries(native PRIVATE UIAutomationCore)

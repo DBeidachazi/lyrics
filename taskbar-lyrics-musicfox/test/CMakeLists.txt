@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ½öÔÚÊ¹ÓÃ MSVC Ê±Ìí¼Ó MSVC ÌØ¶¨µÄÑ¡Ïî
+# ä»…åœ¨ä½¿ç”¨ MSVC æ—¶æ·»åŠ  MSVC ç‰¹å®šçš„é€‰é¡¹
 if(MSVC)
   add_compile_options(/utf-8 /D_UNICODE /DUNICODE)
 else()
@@ -14,21 +14,32 @@ else()
     add_definitions(-D_UNICODE -DUNICODE)
 endif()
 
+# ä¸»æµ‹è¯•ç¨‹åº
 add_executable(test_dll test_dll.cpp)
 
-# Á´½Ó Windows ¿â
+# ç®€å•æµ‹è¯•ç¨‹åº
+add_executable(simple_test simple_test.cpp)
+
+# é“¾æ¥ Windows åº“
 if(WIN32)
     target_link_libraries(test_dll PRIVATE kernel32 user32)
+    target_link_libraries(simple_test PRIVATE kernel32 user32)
 endif()
 
-# ¸´ÖÆ native.dll µ½¹¹½¨Ä¿Â¼
-set(MAIN_DLL_PATH "${CMAKE_SOURCE_DIR}/../build/native.dll")
+# å¤åˆ¶ native.dll åˆ°æ„å»ºç›®å½• (Release ç‰ˆæœ¬)
+set(MAIN_DLL_PATH "${CMAKE_SOURCE_DIR}/../build/Release/native.dll")
 if(EXISTS "${MAIN_DLL_PATH}")
     add_custom_command(TARGET test_dll POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${MAIN_DLL_PATH}"
          "$<TARGET_FILE_DIR:test_dll>/native.dll"
-        COMMENT "Copying native.dll to test build directory"
+        COMMENT "Copying native.dll to test_dll directory"
+    )
+    add_custom_command(TARGET simple_test POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${MAIN_DLL_PATH}"
+         "$<TARGET_FILE_DIR:simple_test>/native.dll"
+        COMMENT "Copying native.dll to simple_test directory"
     )
     message(STATUS "Found native.dll at: ${MAIN_DLL_PATH}")
 else()

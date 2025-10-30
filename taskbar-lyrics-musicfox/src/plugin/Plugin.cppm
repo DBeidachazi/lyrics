@@ -1,9 +1,11 @@
+module;
+
 #include <Windows.h>
 #include <thread>
-#include <string>
 
 export module plugin.Plugin;
 
+import plugin.Config;
 import window.Window;
 
 export class Plugin {
@@ -13,7 +15,7 @@ public:
 
 private:
     Plugin() {
-        this->mutex = CreateMutex(nullptr, true, L"Global\\Taskbar-Lyrics-Musicfox");
+        this->mutex = CreateMutex(nullptr, true, L"Global\Taskbar-Lyrics-Musicfox");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
             CloseHandle(this->mutex);
             this->mutex = nullptr;
@@ -37,9 +39,8 @@ private:
     auto initialize() -> void {
         std::thread([this] {
             this->window = new Window();
-            if (this->window->create()) {
-                this->window->runner();
-            }
+            this->window->create();
+            this->window->runner();
         }).detach();
     }
 
@@ -48,11 +49,7 @@ public:
         static Plugin instance;
         return instance;
     }
-
-    auto setLyric(const std::wstring& lyric) -> void {
-        if (this->window) {
-            this->window->setLyric(lyric);
-        }
+    static auto refresh() -> void {
+		Plugin::getInstance().window->refresh();
     }
 };
-
