@@ -14,12 +14,13 @@ module;
 
 export module window.Renderer;
 import window.Lyrics;
+import plugin.Config;
 
-// 全局日志锁与文件路径（与主DLL一致）
+// 鍏ㄥ眬鏃ュ織閿佷笌鏂囦欢璺緞锛堜笌涓籇LL涓�鑷达級
 static std::mutex g_logMutex;
 static const wchar_t* LOG_FILE = L"./dll.log";
 
-// 通用日志函数
+// 閫氱敤鏃ュ織鍑芥暟
 static void logDll(const std::string& msg) {
     std::lock_guard<std::mutex> lock(g_logMutex);
     std::ofstream ofs(LOG_FILE, std::ios::app);
@@ -155,6 +156,10 @@ public:
         }
 
         logDll("Renderer::onPaint - begin drawing");
+        // 娣诲姞鏃ュ織鏄剧ず褰撳墠瑕佺粯鍒剁殑姝岃瘝
+        logDll(L"Current lyric_primary: [" + config.lyric_primary + L"]");
+        logDll(L"Current lyric_secondary: [" + config.lyric_secondary + L"]");
+
         Lyrics lyrics{ this->d2dRenderTarget.Get(), this->dwriteFactory.Get() };
 
         this->d2dRenderTarget->BeginDraw();

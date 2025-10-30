@@ -2,6 +2,9 @@ module;
 
 #include <Windows.h>
 #include <functional>
+#include <fstream>
+#include <mutex>
+#include <string>
 
 export module window.Window;
 
@@ -10,9 +13,22 @@ import taskbar.Taskbar;
 import taskbar.Registry;
 import window.Renderer;
 
+// 日志功能
+static std::mutex g_logMutex;
+static const wchar_t* LOG_FILE = L"./dll.log";
+
+static void logWindow(const std::string& msg) {
+    std::lock_guard<std::mutex> lock(g_logMutex);
+    std::ofstream ofs(LOG_FILE, std::ios::app);
+    if (ofs.is_open()) {
+        ofs << "[Window] " << msg << std::endl;
+    }
+}
+
 export class Window {
 private:
     HWND hwnd = nullptr;
+    static constexpr UINT WM_APP_REFRESH = WM_APP + 1;
 
     static auto CALLBACK WindowProc(const HWND hwnd, const UINT message, const WPARAM wParam, const LPARAM lParam) -> LRESULT {
         if (message == WM_CREATE) [[unlikely]] {
@@ -21,6 +37,11 @@ private:
             SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
         }
         if (const auto that = reinterpret_cast<Window *>(GetWindowLongPtr(hwnd, GWLP_USERDATA))) [[likely]] {
+            if (message == WM_APP_REFRESH) {
+                logWindow("WindowProc - received WM_APP_REFRESH message");
+                that->refresh();
+                return 0;
+            }
             return that->handleMessage(hwnd, message, wParam, lParam);
         }
         return DefWindowProc(hwnd, message, wParam, lParam);
@@ -33,12 +54,18 @@ private:
                 this->taskbar.initialize();
                 this->taskbar.setListener(std::bind(&Window::update, this));
                 this->renderer.onCreate(hwnd);
+                // 主动调用一次 update() 来初始化窗口尺寸和位置
+                logWindow("WM_CREATE - calling update() to initialize window size");
+                this->update();
                 break;
             }
             case WM_SIZE: {
                 const auto width = LOWORD(lParam);
                 const auto height = HIWORD(lParam);
                 const auto dpi = GetDpiForWindow(hwnd);
+                logWindow("WM_SIZE - width: " + std::to_string(width) + 
+                         ", height: " + std::to_string(height) + 
+                         ", dpi: " + std::to_string(dpi));
                 this->renderer.onSize(width, height, dpi);
                 break;
             }
@@ -91,19 +118,48 @@ public:
     }
 
     auto refresh() -> void {
-        renderer.onPaint();
+        if (this->hwnd) {
+            logWindow("refresh() called - directly calling onPaint");
+            // 直接调用绘制，不依赖 Windows 消息机制
+            this->renderer.onPaint();
+            logWindow("refresh() completed");
+        } else {
+            logWindow("refresh() called but hwnd is null!");
+        }
     }
 
+    // 新增：窗口是否已就绪（是否有 HWND）
+    auto isReady() const -> bool {
+        return this->hwnd != nullptr;
+    }
+
+    // 新增：以异步消息请求刷新（线程安全）
+    auto postRefresh() -> void {
+        if (this->hwnd) {
+            logWindow("postRefresh() - posting WM_APP_REFRESH message");
+            PostMessage(this->hwnd, WM_APP_REFRESH, 0, 0);
+        } else {
+            logWindow("postRefresh() - hwnd is null!");
+        }
+    }
 
     auto update() -> void {
         if (this->hwnd == nullptr) [[unlikely]] {
+            logWindow("update() called but hwnd is null!");
             return;
         }
+
+        logWindow("update() - calculating window size and position");
 
         const auto taskbarFrame = this->taskbar.getRectForTaskbarFrame();
         const auto trayFrameRect = this->taskbar.getRectForTrayFrame();
         const auto widgetsButtonRect = this->taskbar.getRectForWidgetsButton();
         const auto taskListRect = this->taskbar.getRectForTaskList();
+
+        logWindow("update() - taskbarFrame: left=" + std::to_string(taskbarFrame.left) + 
+                 ", right=" + std::to_string(taskbarFrame.right) + 
+                 ", top=" + std::to_string(taskbarFrame.top) + 
+                 ", bottom=" + std::to_string(taskbarFrame.bottom));
 
         auto offset = 0L;
         auto width = 0L;
@@ -143,8 +199,14 @@ public:
         width -= config.margin_right + offset;
         height += taskbarFrame.bottom - taskbarFrame.top;
 
+        logWindow("update() - final position: offset=" + std::to_string(offset) + 
+                 ", width=" + std::to_string(width) + 
+                 ", height=" + std::to_string(height));
+
         BringWindowToTop(this->hwnd);
         MoveWindow(this->hwnd, offset, 0, width, height, false);
         RedrawWindow(this->hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+
+        logWindow("update() - MoveWindow completed");
     }
 };

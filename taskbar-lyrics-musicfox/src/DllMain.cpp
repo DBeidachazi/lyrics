@@ -8,11 +8,11 @@
 import plugin.Plugin;
 import plugin.Config;
 
-// È«¾ÖÈÕÖ¾ËøÓëÎÄ¼şÃû
+// å…¨å±€æ—¥å¿—é”ä¸æ–‡ä»¶å
 static std::mutex g_logMutex;
 static const wchar_t* LOG_FILE = L"./dll.log";
 
-// Ïß³Ì°²È«ÈÕÖ¾º¯Êı
+// çº¿ç¨‹å®‰å…¨æ—¥å¿—å‡½æ•°
 static void logDll(const std::string& msg) {
     std::lock_guard<std::mutex> lock(g_logMutex);
     std::ofstream ofs(LOG_FILE, std::ios::app);
@@ -21,12 +21,12 @@ static void logDll(const std::string& msg) {
     }
 }
 
-// ¿É½ÓÊÜ¿í×Ö·û´®µÄÖØÔØ
+// å¯æ¥å—å®½å­—ç¬¦ä¸²çš„é‡è½½
 static void logDll(const std::wstring& msg) {
     std::lock_guard<std::mutex> lock(g_logMutex);
     std::ofstream ofs(LOG_FILE, std::ios::app);
     if (ofs.is_open()) {
-        // ¼òµ¥×ª»»Îª UTF-8 Ğ´Èë
+        // ç®€å•è½¬æ¢ä¸º UTF-8 å†™å…¥
         int size = WideCharToMultiByte(CP_UTF8, 0, msg.c_str(), -1, nullptr, 0, nullptr, nullptr);
         std::string utf8(size, '\0');
         WideCharToMultiByte(CP_UTF8, 0, msg.c_str(), -1, utf8.data(), size, nullptr, nullptr);
@@ -53,10 +53,10 @@ auto WINAPI DllMain(const HINSTANCE hInstance, const DWORD dwReason, const LPVOI
 }
 
 // -------------------------------------------------------------------
-// µ¼³öº¯Êı£ºSetConfig 
+// å¯¼å‡ºå‡½æ•°ï¼šSetConfig 
 // -------------------------------------------------------------------
 // -------------------------------------------------------------------
-// µ¼³öº¯Êı£ºSetConfig 
+// å¯¼å‡ºå‡½æ•°ï¼šSetConfig 
 // -------------------------------------------------------------------
 extern "C" __declspec(dllexport) void SetConfig(const char* key, const char* value) {
     if (key && value) {
@@ -64,15 +64,10 @@ extern "C" __declspec(dllexport) void SetConfig(const char* key, const char* val
         std::string svalue(value);
 
         logDll("SetConfig(" + skey + ", " + svalue + ")");
-        setConfig(skey, svalue);  // µ÷ÓÃÄãÄÚ²¿µÄ C++ º¯Êı
+        setConfig(skey, svalue);  // è°ƒç”¨ä½ å†…éƒ¨çš„ C++ å‡½æ•°
 
-        auto& plugin = Plugin::getInstance(); // ?? »ñÈ¡µ¥Àı
-        if (plugin.window != nullptr) {
-            plugin.window->renderer.onPaint(); // ×Ô¶¯Ë¢ĞÂ
-        }
-        else {
-            logDll("Skipping refresh: window not ready");
-        }
+        // è¯·æ±‚åˆ·æ–°ï¼ˆçº¿ç¨‹å®‰å…¨ã€å¦‚æœ window æœªå°±ç»ªä¼šå»¶è¿Ÿï¼‰
+        Plugin::refresh();
     }
     else {
         logDll("SetConfig called with null arguments");
@@ -82,19 +77,22 @@ extern "C" __declspec(dllexport) void SetConfig(const char* key, const char* val
 
 
 // -------------------------------------------------------------------
-// µ¼³öº¯Êı£ºSetLyric£¨¼æÈİ¾É½Ó¿Ú£©ÆúÓÃ
+// å¯¼å‡ºå‡½æ•°ï¼šSetLyricï¼ˆå…¼å®¹æ—§æ¥å£ï¼‰å¼ƒç”¨
 // -------------------------------------------------------------------
 extern "C" __declspec(dllexport) void SetLyric(const wchar_t* lyric) {
     if (lyric) {
         logDll(L"SetLyric called");
 
-        // ×ª UTF-8
+        // è½¬ UTF-8
         int size = WideCharToMultiByte(CP_UTF8, 0, lyric, -1, nullptr, 0, nullptr, nullptr);
         if (size > 0) {
             std::string utf8(size, '\0');
             WideCharToMultiByte(CP_UTF8, 0, lyric, -1, utf8.data(), size, nullptr, nullptr);
             logDll(std::string("Converted lyric: ") + utf8);
             setConfig("lyric_primary", utf8.c_str());
+
+            // æ–°å¢ï¼šæ­Œè¯å˜æ›´åè¯·æ±‚åˆ·æ–°
+            Plugin::refresh();
         }
         else {
             logDll("SetLyric conversion failed");
