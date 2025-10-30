@@ -1,4 +1,4 @@
-name: CMake on Windows (Visual Studio)
+name: Build native.dll and test
 
 on:
   push:
@@ -14,14 +14,35 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: Configure CMake (Visual Studio 2022 x64)
-      run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+    - name: Configure main project
+      run: |
+        cd ${{ github.workspace }}
+        mkdir build
+        cd build
+        cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
-    - name: Build
-      run: cmake --build build --config ${{env.BUILD_TYPE}}
+    - name: Build main project
+      run: |
+        cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
 
-    - name: Test
-      working-directory: build
-      run: ctest -C ${{env.BUILD_TYPE}}
+    - name: Configure test project
+      run: |
+        cd ${{ github.workspace }}/test
+        mkdir build
+        cd build
+        cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+    - name: Build test project
+      run: |
+        cmake --build ${{ github.workspace }}/test/build --config ${{ env.BUILD_TYPE }}
+
+    - name: Copy DLL to test release folder
+      run: |
+        Copy-Item "${{ github.workspace }}\build\Release\native.dll" "${{ github.workspace }}\test\build\Release\" -Force
+
+    - name: List files to confirm
+      run: |
+        dir ${{ github.workspace }}\test\build\Release
