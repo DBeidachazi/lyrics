@@ -19,30 +19,30 @@ jobs:
 
     - name: Configure main project
       run: |
-        cd ${{ github.workspace }}
+        cd ${{ github.workspace }}/taskbar-lyrics-musicfox
         mkdir build
         cd build
         cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
     - name: Build main project
       run: |
-        cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }}
+        cmake --build ${{ github.workspace }}/taskbar-lyrics-musicfox/build --config ${{ env.BUILD_TYPE }}
 
     - name: Configure test project
       run: |
-        cd ${{ github.workspace }}/test
+        cd ${{ github.workspace }}/taskbar-lyrics-musicfox/test
         mkdir build
         cd build
         cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
     - name: Build test project
       run: |
-        cmake --build ${{ github.workspace }}/test/build --config ${{ env.BUILD_TYPE }}
+        cmake --build ${{ github.workspace }}/taskbar-lyrics-musicfox/test/build --config ${{ env.BUILD_TYPE }}
 
     - name: Copy DLL to test release folder
       run: |
-        Copy-Item "${{ github.workspace }}\build\Release\native.dll" "${{ github.workspace }}\test\build\Release\" -Force
+        Copy-Item "${{ github.workspace }}\taskbar-lyrics-musicfox\build\Release\native.dll" "${{ github.workspace }}\taskbar-lyrics-musicfox\test\build\Release\" -Force
 
     - name: List files to confirm
       run: |
-        dir ${{ github.workspace }}\test\build\Release
+        dir ${{ github.workspace }}\taskbar-lyrics-musicfox\test\build\Release
