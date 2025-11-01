@@ -28,6 +28,7 @@ export struct Config {
     std::wstring font_family = L"Microsoft YaHei UI";
     int margin_left = 0;
     int margin_right = 0;
+    int line_spacing = 4;
     TASKBAR_WINDOW_ALIGNMENT window_alignment = TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_AUTO;
     // 主要歌词设置
     unsigned int color_primary = 0xFFFFFFFF;
@@ -56,6 +57,7 @@ export auto setConfig(const std::string &key, const std::string &value) {
         {"font_family", [](const std::string &str) { config.font_family = stringToWString(str); }},
         {"margin_left", [](const std::string &str) { config.margin_left = std::stoi(str); }},
         {"margin_right", [](const std::string &str) { config.margin_right = std::stoi(str); }},
+        {"line_spacing", [](const std::string &str) { config.line_spacing = std::stoi(str); }},
         {"window_alignment", [](const std::string &str) { config.window_alignment = static_cast<TASKBAR_WINDOW_ALIGNMENT>(std::stoi(str)); }},
         // 主要歌词设置
         {"size_primary", [](const std::string &str) { config.size_primary = std::stoi(str); }},

@@ -1,6 +1,6 @@
 # Taskbar Lyrics for Musicfox
 
-> 为 Windows 任务栏添加歌词显示功能的 DLL 插件
+> 为 Windows 任务栏添加歌词显示功能的 DLL 插件 文档AI生成，未检查
 
 [![Language](https://img.shields.io/badge/C++-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![Build System](https://img.shields.io/badge/CMake-3.30+-green.svg)](https://cmake.org/)
@@ -25,30 +25,52 @@
 
 ## 🚀 快速开始
 
-### 环境要求
+> **💡 新功能：一键集成到 go-musicfox！**
+> 
+> 现在可以自动构建 DLL 和打补丁的 musicfox，详见 [集成指南](#-集成到-go-musicfox)
 
-- Windows 10/11
-- CMake 3.30+
-- Visual Studio 2022 (MSVC 19.50+)
-- Ninja 构建工具
+### 方式 1: 集成构建（推荐）
 
-### 编译
+将 DLL 和 go-musicfox 一起构建：
 
 ```bash
-# 1. 克隆或下载项目
-cd taskbar-lyrics-musicfox
+# 一键构建脚本
+build-integration.bat
+# 选择选项 1: Build DLL + Musicfox (Full Build)
+```
 
-# 2. 构建主 DLL
-mkdir build && cd build
-cmake -G Ninja ..
+或使用 CMake：
+
+```bash
+mkdir build
+cd build
+cmake -G Ninja -S .. -B . -DSKIP_BUILD_MUSICFOX=NO
 cmake --build .
+```
 
-# 3. 构建测试程序（可选）
-cd ../test
+输出文件在 `build/release/` 目录：
+- `musicfox.exe` - 打补丁的播放器
+- `native.dll` - 任务栏歌词插件
+
+### 方式 2: 仅构建 DLL
+
+如果只需要 DLL：
+
+```bash
+cd src
 mkdir build && cd build
 cmake -G Ninja ..
 cmake --build .
 ```
+
+### 环境要求
+
+- Windows 10/11
+- CMake 3.20+
+- Visual Studio 2022 (MSVC 19.50+)
+- Ninja 构建工具
+- Go 1.21+ (集成构建时需要)
+- Git (集成构建时需要)
 
 ### 运行测试
 
@@ -165,18 +187,195 @@ cmake --build .
 2. 设置 `test_dll.exe` 为启动项目
 3. F5 开始调试
 
-## 📦 集成到 Musicfox
+## 📦 集成到 go-musicfox
 
-### 选项 1: 直接加载 DLL
+### 自动集成（推荐）
 
-在 Musicfox 的播放器代码中：
+本项目提供了完整的自动集成方案，类似于 [lyric-for-musicfox](https://github.com/SmileYik/lyric-for-musicfox) 的构建方式，但使用 DLL 进程内调用替代 UDP 网络传输。
+
+#### 🎯 快速集成
+
+```bash
+# 方式 1: 使用一键脚本
+build-integration.bat
+# 选择选项 1: Build DLL + Musicfox (Full Build)
+
+# 方式 2: 使用 CMake
+mkdir build-integration && cd build-integration
+cmake -G Ninja -S .. -B . -DSKIP_BUILD_MUSICFOX=NO
+cmake --build .
+```
+
+#### 📂 输出内容
+
+构建完成后，在 `build-integration/release/` 目录下：
+
+```
+release/
+├── musicfox.exe    # 打补丁的播放器（已集成 DLL 加载）
+├── native.dll      # 任务栏歌词插件
+└── README.md       # 使用说明
+```
+
+#### 🔧 工作原理
+
+集成通过补丁文件 `musicfox-dll.patch` 实现：
+
+1. **自动加载 DLL**：在 `player.go` 中添加 `initLyricsPlugin()` 函数
+2. **歌词传输**：通过 `SetConfig(key, value)` 函数发送歌词
+3. **实时更新**：在播放进度更新时自动发送当前歌词
+
+补丁修改的文件：`go-musicfox/internal/ui/player.go`
+
+添加的功能：
+```go
+// DLL 加载（仅 Windows）
+func initLyricsPlugin()
+
+// 歌词发送
+func sendLyricBySetConfig(content, transContent string)
+```
+
+#### 📚 详细文档
+
+- **[完整集成指南](INTEGRATION_GUIDE.md)** - 详细的集成步骤和原理
+- **[快速开始](QUICK_START_CN.md)** - 一分钟上手
+- **[集成 README](README-INTEGRATION.md)** - 集成版本说明
+
+#### 🆚 对比 lyric-for-musicfox
+
+| 特性 | lyric-for-musicfox | 本项目（DLL 集成） |
+|------|-------------------|-------------------|
+| 通信方式 | UDP 网络传输 | DLL 函数调用 |
+| 显示位置 | 桌面悬浮窗 | Windows 任务栏 |
+| 平台支持 | Linux + Windows | 仅 Windows |
+| 性能开销 | UDP 网络栈 | 进程内调用（更快） |
+| 部署方式 | 两个独立程序 | 集成在一起 |
+| 端口配置 | 需要配置端口 | 无需配置 |
+
+### 手动集成
+
+如果需要手动应用补丁：
+
+#### 步骤 1: 构建 DLL
+
+```bash
+cd src && mkdir build && cd build
+cmake -G Ninja .. && cmake --build .
+```
+
+#### 步骤 2: 克隆并打补丁
+
+```bash
+git clone https://github.com/go-musicfox/go-musicfox.git
+cd go-musicfox
+git apply ../musicfox-dll.patch
+```
+
+#### 步骤 3: 编译 musicfox
+
+```bash
+make
+```
+
+#### 步骤 4: 部署
+
+将 `native.dll` 和 `bin/musicfox.exe` 放在同一目录即可运行。
+
+### API 调用示例
+
+如果你想在自己的 Go 程序中使用：
 
 ```go
-// 使用 syscall 调用 DLL
-dll := syscall.MustLoadDLL("native.dll")
-setLyric := dll.MustFindProc("SetLyric")
+package main
 
-// 更新歌词
+import (
+    "syscall"
+    "unsafe"
+)
+
+var (
+    dll           *syscall.DLL
+    setConfigProc *syscall.Proc
+)
+
+func init() {
+    dll = syscall.MustLoadDLL("native.dll")
+    setConfigProc = dll.MustFindProc("SetConfig")
+}
+
+func setLyric(primary, secondary string) {
+    // 设置主歌词
+    keyPtr, _ := syscall.UTF16PtrFromString("lyric_primary")
+    valPtr, _ := syscall.UTF16PtrFromString(primary)
+    setConfigProc.Call(
+        uintptr(unsafe.Pointer(keyPtr)),
+        uintptr(unsafe.Pointer(valPtr)),
+    )
+    
+    // 设置副歌词（翻译）
+    if secondary != "" {
+        keyPtr, _ := syscall.UTF16PtrFromString("lyric_secondary")
+        valPtr, _ := syscall.UTF16PtrFromString(secondary)
+        setConfigProc.Call(
+            uintptr(unsafe.Pointer(keyPtr)),
+            uintptr(unsafe.Pointer(valPtr)),
+        )
+    }
+}
+```
+
+## 🔧 DLL API 文档
+
+### SetConfig
+
+```cpp
+extern "C" __declspec(dllexport) void SetConfig(const wchar_t* key, const wchar_t* value);
+```
+
+**参数:**
+- `key`: 配置键（支持 `lyric_primary` 和 `lyric_secondary`）
+- `value`: 配置值（歌词文本）
+
+**支持的配置键:**
+- `lyric_primary`: 主歌词
+- `lyric_secondary`: 副歌词/翻译
+
+**说明:**
+- 线程安全，可从任何线程调用
+- 更新会立即反映在任务栏上
+- 如果参数为 NULL，函数不执行任何操作
+
+### SetLyric（已废弃，保留兼容）
+
+```cpp
+extern "C" __declspec(dllexport) void SetLyric(const wchar_t* lyric);
+```
+
+推荐使用 `SetConfig` 以支持翻译歌词。
+
+## 📁 项目结构
+
+```
+taskbar-lyrics-musicfox/
+├── src/                          # DLL 源代码
+│   ├── CMakeLists.txt           # DLL 构建配置
+│   ├── DllMain.cpp              # DLL 主文件
+│   ├── plugin/                  # 插件接口
+│   ├── taskbar/                 # 任务栏渲染
+│   └── window/                  # 窗口管理
+├── test/                        # 测试代码
+│   ├── simple_test.cpp         # 简单测试
+│   └── test_dll.cpp            # DLL 功能测试
+├── musicfox-dll.patch          # go-musicfox 补丁文件
+├── CMakeLists-integration.txt  # 集成构建配置
+├── build-integration.bat       # 一键构建脚本
+├── test-integration.bat        # 集成测试脚本
+├── INTEGRATION_GUIDE.md        # 完整集成指南
+├── QUICK_START_CN.md           # 快速开始
+├── README-INTEGRATION.md       # 集成版本说明
+└── README.md                   # 本文件
+```
 lyricPtr, _ := syscall.UTF16PtrFromString("当前歌词")
 setLyric.Call(uintptr(unsafe.Pointer(lyricPtr)))
 ```

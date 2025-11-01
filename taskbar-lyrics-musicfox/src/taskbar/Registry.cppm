@@ -12,7 +12,7 @@ public:
         HKEY hKey;
         bool result = false;
         if (RegOpenKeyEx(HKEY_CURRENT_USER,
-            L"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+            LR"(Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced)",
             0, KEY_READ, &hKey) == ERROR_SUCCESS) {
             DWORD value = 0;
             DWORD size = sizeof(value);
@@ -28,7 +28,7 @@ public:
         HKEY hKey;
         bool result = false;
         if (RegOpenKeyEx(HKEY_CURRENT_USER,
-            L"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+            LR"(Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced)",
             0, KEY_READ, &hKey) == ERROR_SUCCESS) {
             DWORD value = 1;
             DWORD size = sizeof(value);
@@ -43,7 +43,7 @@ public:
         std::thread([callback] {
             HKEY hKey;
             if (RegOpenKeyEx(HKEY_CURRENT_USER,
-                L"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+                LR"(Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced)",
                 0, KEY_NOTIFY, &hKey) != ERROR_SUCCESS) {
                 return;
             }

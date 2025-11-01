@@ -166,8 +166,7 @@ public:
         auto height = 0L;
 
         switch (config.window_alignment) {
-            case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_AUTO: [[fallthrough]];
-            case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_LEFT: {
+            case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_AUTO: {
                 if (Registry::isTaskbarCentered()) {
                     width += taskListRect.left;
                     if (Registry::isWidgetsEnabled()) {
@@ -185,6 +184,17 @@ public:
                     width += widgetsButtonRect.left;
                 } else {
                     width += trayFrameRect.left;
+                }
+                break;
+            }
+            case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_LEFT: {
+                // 真正的左对齐：从 Widgets 按钮右侧或任务栏起始位置开始
+                if (Registry::isWidgetsEnabled()) {
+                    offset += widgetsButtonRect.right;
+                    width += taskListRect.left;
+                } else {
+                    offset += taskbarFrame.left;
+                    width += taskListRect.left;
                 }
                 break;
             }

@@ -40,6 +40,9 @@ static void logDll(const std::wstring& msg) {
 auto WINAPI DllMain(const HINSTANCE hInstance, const DWORD dwReason, const LPVOID lpReserved) -> BOOL {
     switch (dwReason) {
     case DLL_PROCESS_ATTACH:
+        // 删除已有的日志文件，确保每次启动都是新的日志
+        DeleteFileW(LOG_FILE);
+
         logDll("Process attach");
         CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         break;

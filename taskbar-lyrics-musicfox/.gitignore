@@ -3,6 +3,7 @@ build/
 test/build/
 cmake-build-*/
 out/
+output/
 
 # Visual Studio
 .vs/
