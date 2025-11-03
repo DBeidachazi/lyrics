@@ -23,7 +23,22 @@ jobs:
     - name: Apply full.patch to go-musicfox
       run: |
         cd ${{ github.workspace }}/go-musicfox
-        git apply ../taskbar-lyrics-musicfox/full.patch
+        
+        # 检查 patch 文件是否存在
+        PATCH_FILE="${{ github.workspace }}/taskbar-lyrics-musicfox/full.patch"
+        if [ ! -f "$PATCH_FILE" ]; then
+          echo "❌ Patch file not found at: $PATCH_FILE"
+          echo "Available files in workspace:"
+          ls -la ${{ github.workspace }}/
+          echo "Available files in taskbar-lyrics-musicfox:"
+          ls -la ${{ github.workspace }}/taskbar-lyrics-musicfox/ || echo "Directory not found"
+          exit 1
+        fi
+        
+        echo "✅ Found patch file: $PATCH_FILE"
+        
+        # 应用 patch
+        git apply --verbose "$PATCH_FILE"
         echo "✅ Patch applied successfully"
 
     - name: Set up Go
