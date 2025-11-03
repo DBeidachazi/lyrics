@@ -1,0 +1,264 @@
+name: Release Build
+
+on:
+  workflow_dispatch:  # 只允许手动触发，自动生成版本号
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch  # 补丁版本 (v1.0.0 -> v1.0.1)
+          - minor  # 次版本 (v1.0.0 -> v1.1.0)
+          - major  # 主版本 (v1.0.0 -> v2.0.0)
+        default: 'patch'
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  # Job 0: 生成新版本号并创建 tag
+  generate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整的 git 历史以便读取所有 tags
+
+    - name: Get latest tag and bump version
+      id: bump_version
+      run: |
+        # 获取最新的 tag，如果没有则从 v0.0.0 开始
+        LATEST_TAG=$(git tag -l "v*" | sort -V | tail -n 1)
+        
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No existing tags found, starting from v0.0.0"
+          LATEST_TAG="v0.0.0"
+        fi
+        
+        echo "Latest tag: $LATEST_TAG"
+        
+        # 去掉 'v' 前缀
+        VERSION=${LATEST_TAG#v}
+        
+        # 分解版本号
+        MAJOR=$(echo $VERSION | cut -d. -f1)
+        MINOR=$(echo $VERSION | cut -d. -f2)
+        PATCH=$(echo $VERSION | cut -d. -f3)
+        
+        # 根据选择的类型自增版本号
+        case "${{ github.event.inputs.bump_type }}" in
+          major)
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          minor)
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          patch)
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+        
+        NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+        echo "New version: $NEW_VERSION"
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create and push new tag
+      run: |
+        NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+        git push origin "$NEW_VERSION"
+        echo "✅ Created and pushed tag: $NEW_VERSION"
+  # Job 1: 构建 native.dll (Windows)
+  build-dll:
+    needs: generate-version
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.generate-version.outputs.new_version }}  # 切换到新 tag
+
+    - name: Configure CMake for native.dll
+      run: |
+        cd ${{ github.workspace }}/taskbar-lyrics-musicfox
+        mkdir build
+        cd build
+        cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+    - name: Build native.dll
+      run: |
+        cmake --build ${{ github.workspace }}/taskbar-lyrics-musicfox/build --config ${{ env.BUILD_TYPE }}
+
+    - name: Upload native.dll artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: native-dll
+        path: taskbar-lyrics-musicfox/build/Release/native.dll
+        retention-days: 1
+
+  # Job 2: 构建 go-musicfox.exe (Linux 交叉编译)
+  build-go-musicfox:
+    needs: generate-version
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout current repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.generate-version.outputs.new_version }}  # 切换到新 tag
+
+    - name: Clone go-musicfox repository
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/go-musicfox/go-musicfox.git
+
+    - name: Apply full.patch to go-musicfox
+      run: |
+        cd ${{ github.workspace }}/go-musicfox
+        git apply ../taskbar-lyrics-musicfox/full.patch
+        echo "✅ Patch applied successfully"
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache-dependency-path: go-musicfox/go.sum
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          software-properties-common \
+          build-essential \
+          libflac-dev \
+          libasound2-dev \
+          gcc-mingw-w64-x86-64 \
+          g++-mingw-w64-x86-64
+
+    - name: Build go-musicfox for Windows
+      run: |
+        cd ${{ github.workspace }}/go-musicfox
+        export GOOS=windows
+        export GOARCH=amd64
+        export CGO_ENABLED=1
+        export CC=x86_64-w64-mingw32-gcc
+        export CXX=x86_64-w64-mingw32-g++
+        
+        make build
+        
+        if [ -f ./bin/musicfox ]; then
+          mv ./bin/musicfox ./bin/musicfox.exe
+        fi
+
+    - name: Upload musicfox.exe artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: musicfox-exe
+        path: go-musicfox/bin/musicfox.exe
+        retention-days: 1
+
+  # Job 3: 打包并发布 Release
+  create-release:
+    needs: [generate-version, build-dll, build-go-musicfox]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要写权限来创建 release
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.generate-version.outputs.new_version }}  # 切换到新 tag
+
+    - name: Download native.dll
+      uses: actions/download-artifact@v4
+      with:
+        name: native-dll
+        path: release-files/
+
+    - name: Download musicfox.exe
+      uses: actions/download-artifact@v4
+      with:
+        name: musicfox-exe
+        path: release-files/
+
+    - name: List downloaded files
+      run: |
+        echo "📦 Downloaded files:"
+        ls -lh release-files/
+
+    - name: Create release package
+      run: |
+        cd release-files
+        # 创建 zip 包
+        zip -r ../musicfox-taskbar-lyrics-windows-amd64.zip *
+        cd ..
+        echo "✅ Package created:"
+        ls -lh musicfox-taskbar-lyrics-windows-amd64.zip
+
+    - name: Generate checksums
+      run: |
+        sha256sum musicfox-taskbar-lyrics-windows-amd64.zip > checksums.txt
+        echo "📋 Checksums:"
+        cat checksums.txt
+
+    - name: Determine version
+      id: get_version
+      run: |
+        echo "version=${{ needs.generate-version.outputs.new_version }}" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Release ${{ steps.get_version.outputs.version }}
+        body: |
+          ## 🎵 go-musicfox 任务栏歌词版本
+          
+          ### 📦 包含内容
+          - `musicfox.exe` - go-musicfox 主程序（已集成任务栏歌词支持）
+          - `native.dll` - 任务栏歌词显示插件
+          
+          ### 📥 使用方法
+          1. 下载 `musicfox-taskbar-lyrics-windows-amd64.zip`
+          2. 解压到任意目录
+          3. 确保 `musicfox.exe` 和 `native.dll` 在同一目录下
+          4. 运行 `musicfox.exe` 即可享受任务栏歌词功能
+          
+          ### ⚠️ 系统要求
+          - Windows 10/11（推荐 Windows 11 以获得最佳体验）
+          - 需要 Windows Terminal 或其他现代终端
+          
+          ### 🔧 技术说明
+          本版本基于 [go-musicfox](https://github.com/go-musicfox/go-musicfox) 开发，添加了 Windows 任务栏歌词显示功能。
+          
+          ---
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ steps.get_version.outputs.version }}
+        files: |
+          musicfox-taskbar-lyrics-windows-amd64.zip
+          checksums.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload release info
+      run: |
+        echo "✅ Release created successfully!"
+        echo "Version: ${{ steps.get_version.outputs.version }}"
+        echo "Download URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}"
+

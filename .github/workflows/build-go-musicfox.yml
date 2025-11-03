@@ -1,0 +1,80 @@
+name: Build go-musicfox for Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-go-musicfox:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout current repository
+      uses: actions/checkout@v4
+
+    - name: Clone go-musicfox repository
+      run: |
+        cd ${{ github.workspace }}
+        git clone https://github.com/go-musicfox/go-musicfox.git
+
+    - name: Apply full.patch to go-musicfox
+      run: |
+        cd ${{ github.workspace }}/go-musicfox
+        git apply ../taskbar-lyrics-musicfox/full.patch
+        echo "✅ Patch applied successfully"
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        cache-dependency-path: go-musicfox/go.sum
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          software-properties-common \
+          build-essential \
+          libflac-dev \
+          libasound2-dev \
+          gcc-mingw-w64-x86-64 \
+          g++-mingw-w64-x86-64
+
+    - name: Build go-musicfox with parameters from build.sh
+      run: |
+        cd ${{ github.workspace }}/go-musicfox
+        export GOOS=windows
+        export GOARCH=amd64
+        export CGO_ENABLED=1
+        export CC=x86_64-w64-mingw32-gcc
+        export CXX=x86_64-w64-mingw32-g++
+        
+        # 使用 make build 构建（会调用 hack/build.sh）
+        make build
+        
+        # 检查编译产物
+        if [ -f ./bin/musicfox ]; then
+          mv ./bin/musicfox ./bin/musicfox.exe
+          echo "✅ Build successful: musicfox.exe created"
+        elif [ -f ./bin/musicfox.exe ]; then
+          echo "✅ Build successful: musicfox.exe already exists"
+        else
+          echo "❌ Build failed: no executable found"
+          exit 1
+        fi
+
+    - name: Upload musicfox.exe artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: musicfox-windows-amd64
+        path: go-musicfox/bin/musicfox.exe
+        retention-days: 30
+
+    - name: Display build info
+      run: |
+        ls -lh ${{ github.workspace }}/go-musicfox/bin/
+        file ${{ github.workspace }}/go-musicfox/bin/musicfox.exe || true
+
