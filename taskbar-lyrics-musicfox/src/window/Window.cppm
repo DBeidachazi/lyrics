@@ -151,15 +151,44 @@ public:
 
         logWindow("update() - calculating window size and position");
 
-        const auto taskbarFrame = this->taskbar.getRectForTaskbarFrame();
-        const auto trayFrameRect = this->taskbar.getRectForTrayFrame();
-        const auto widgetsButtonRect = this->taskbar.getRectForWidgetsButton();
-        const auto taskListRect = this->taskbar.getRectForTaskList();
+        // 添加异常处理，防止在 Windows 10 上因 UI Automation 查询失败而崩溃
+        RECT taskbarFrame{}, trayFrameRect{}, widgetsButtonRect{}, taskListRect{};
 
-        logWindow("update() - taskbarFrame: left=" + std::to_string(taskbarFrame.left) + 
-                 ", right=" + std::to_string(taskbarFrame.right) + 
-                 ", top=" + std::to_string(taskbarFrame.top) + 
-                 ", bottom=" + std::to_string(taskbarFrame.bottom));
+        try {
+            taskbarFrame = this->taskbar.getRectForTaskbarFrame();
+            logWindow("update() - taskbarFrame: left=" + std::to_string(taskbarFrame.left) +
+                     ", right=" + std::to_string(taskbarFrame.right) +
+                     ", top=" + std::to_string(taskbarFrame.top) +
+                     ", bottom=" + std::to_string(taskbarFrame.bottom));
+
+            trayFrameRect = this->taskbar.getRectForTrayFrame();
+            logWindow("update() - trayFrameRect retrieved");
+
+            widgetsButtonRect = this->taskbar.getRectForWidgetsButton();
+            logWindow("update() - widgetsButtonRect retrieved");
+
+            taskListRect = this->taskbar.getRectForTaskList();
+            logWindow("update() - taskListRect retrieved");
+        } catch (...) {
+            logWindow("update() - Exception caught while getting taskbar rects, using fallback");
+            // 如果查询失败，使用任务栏窗口的客户区作为后备
+            HWND taskbarHwnd = Taskbar::getHWND();
+            if (taskbarHwnd && !GetClientRect(taskbarHwnd, &taskbarFrame)) {
+                logWindow("update() - GetClientRect failed, using default rect");
+                // 使用默认值：假设任务栏在底部，高度40像素
+                RECT desktop;
+                SystemParametersInfo(SPI_GETWORKAREA, 0, &desktop, 0);
+                taskbarFrame = {0, desktop.bottom, desktop.right, desktop.bottom + 40};
+            }
+            // 其他矩形使用空值
+            trayFrameRect = taskListRect = widgetsButtonRect = {0, 0, 0, 0};
+        }
+
+        // 验证 taskbarFrame 是否有效
+        if (taskbarFrame.right <= taskbarFrame.left || taskbarFrame.bottom <= taskbarFrame.top) {
+            logWindow("update() - Invalid taskbarFrame, aborting update");
+            return;
+        }
 
         auto offset = 0L;
         auto width = 0L;

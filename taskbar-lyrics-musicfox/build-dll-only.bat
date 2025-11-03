@@ -48,9 +48,9 @@ echo.
 echo 输出文件: build-dll\Release\native.dll
 echo.
 
-if not exist "output" mkdir output
-copy build-dll\Release\native.dll output\ >nul
-echo 已复制到: output\native.dll
+if not exist "..\bin" mkdir ..\bin
+copy build-dll\Release\native.dll ..\bin\ >nul
+echo 已复制到: ..\bin\native.dll
 echo.
 pause
 

@@ -4,6 +4,7 @@ module;
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 
 export module plugin.Plugin;
 
@@ -17,8 +18,11 @@ public:
 
 private:
     std::atomic_bool refreshPending{false};
+    std::mutex refreshMutex;
+    std::chrono::steady_clock::time_point lastRefreshTime;
+    static constexpr int MIN_REFRESH_INTERVAL_MS = 50; // 最小刷新间隔：50ms (20fps)
 
-    Plugin() {
+    Plugin() : lastRefreshTime(std::chrono::steady_clock::now()) {
         this->mutex = CreateMutex(nullptr, true, L"Global\\Taskbar-Lyrics-Musicfox");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
             CloseHandle(this->mutex);
@@ -66,11 +70,24 @@ public:
     }
 
     // 线程安全的刷新请求接口：若 window 就绪则发消息刷新，否则标记为待刷新
+    // 使用节流机制防止过度刷新
     static auto refresh() -> void {
         auto &inst = Plugin::getInstance();
+
         if (inst.window && inst.window->isReady()) {
-            // 窗口已就绪，立即发送刷新消息
-            inst.window->postRefresh();
+            // 使用节流：检查距离上次刷新是否已过最小间隔
+            std::lock_guard<std::mutex> lock(inst.refreshMutex);
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - inst.lastRefreshTime).count();
+
+            if (elapsed >= MIN_REFRESH_INTERVAL_MS) {
+                // 已过最小间隔，立即刷新
+                inst.window->postRefresh();
+                inst.lastRefreshTime = now;
+            } else {
+                // 未达到最小间隔，标记为待刷新（会在下次有机会时刷新）
+                inst.refreshPending.store(true, std::memory_order_relaxed);
+            }
         } else {
             // 窗口未就绪，标记为待刷新
             inst.refreshPending.store(true, std::memory_order_relaxed);

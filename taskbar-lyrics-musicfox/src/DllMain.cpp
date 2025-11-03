@@ -8,6 +8,9 @@
 import plugin.Plugin;
 import plugin.Config;
 
+// TODO 主副歌词切换到仅主歌词，副歌词清除
+// TODO 任务栏图标位置判断，目前仅图标居中，任务栏居左；图标居左时需添加歌词居右
+// TODO 做当歌词需要换行时不换行，而是向右滚动，可以添加与下一次的歌词间隔时间自适应判断，etc.
 // 全局日志锁与文件名
 static std::mutex g_logMutex;
 static const wchar_t* LOG_FILE = L"./dll.log";
@@ -58,19 +61,22 @@ auto WINAPI DllMain(const HINSTANCE hInstance, const DWORD dwReason, const LPVOI
 // -------------------------------------------------------------------
 // 导出函数：SetConfig 
 // -------------------------------------------------------------------
-// -------------------------------------------------------------------
-// 导出函数：SetConfig 
-// -------------------------------------------------------------------
 extern "C" __declspec(dllexport) void SetConfig(const char* key, const char* value) {
     if (key && value) {
         std::string skey(key);
         std::string svalue(value);
 
         logDll("SetConfig(" + skey + ", " + svalue + ")");
-        setConfig(skey, svalue);  // 调用你内部的 C++ 函数
 
-        // 请求刷新（线程安全、如果 window 未就绪会延迟）
-        Plugin::refresh();
+        // setConfig 现在返回 bool，表示值是否发生变化
+        bool changed = setConfig(skey, svalue);
+
+        // 仅在值实际改变时才请求刷新
+        if (changed) {
+            Plugin::refresh();
+        } else {
+            logDll("SetConfig - value unchanged, skipping refresh");
+        }
     }
     else {
         logDll("SetConfig called with null arguments");
