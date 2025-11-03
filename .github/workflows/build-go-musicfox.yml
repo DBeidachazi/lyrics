@@ -37,8 +37,16 @@ jobs:
         
         echo "✅ Found patch file: $PATCH_FILE"
         
-        # 应用 patch
-        git apply --verbose "$PATCH_FILE"
+        # 应用 patch（忽略二进制文件，使用宽松选项）
+        git apply --reject --whitespace=fix --verbose "$PATCH_FILE" || {
+          echo "⚠️ git apply failed, trying with --3way"
+          git apply --3way --verbose "$PATCH_FILE" || {
+            echo "❌ Failed to apply patch"
+            echo "Patch file content:"
+            cat "$PATCH_FILE"
+            exit 1
+          }
+        }
         echo "✅ Patch applied successfully"
 
     - name: Set up Go
