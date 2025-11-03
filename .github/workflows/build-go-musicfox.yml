@@ -23,7 +23,41 @@ jobs:
     - name: Apply full.patch to go-musicfox
       run: |
         cd ${{ github.workspace }}/go-musicfox
-        git apply --verbose ${{ github.workspace }}/taskbar-lyrics-musicfox/full.patch
+        
+        PATCH_FILE="${{ github.workspace }}/taskbar-lyrics-musicfox/full.patch"
+        
+        echo "=== Checking patch file ==="
+        if [ ! -f "$PATCH_FILE" ]; then
+          echo "❌ Patch file not found: $PATCH_FILE"
+          echo "Files in taskbar-lyrics-musicfox:"
+          ls -la ${{ github.workspace }}/taskbar-lyrics-musicfox/
+          exit 1
+        fi
+        
+        echo "✅ Patch file found: $PATCH_FILE"
+        echo "File size: $(wc -c < "$PATCH_FILE") bytes"
+        echo "Line count: $(wc -l < "$PATCH_FILE") lines"
+        echo ""
+        echo "=== First 20 lines of patch file ==="
+        head -n 20 "$PATCH_FILE"
+        echo ""
+        echo "=== Checking for Windows line endings ==="
+        if file "$PATCH_FILE" | grep -q CRLF; then
+          echo "⚠️ Patch has CRLF line endings, converting to LF..."
+          dos2unix "$PATCH_FILE" 2>/dev/null || sed -i 's/\r$//' "$PATCH_FILE"
+          echo "✅ Converted to LF"
+        else
+          echo "✅ Patch already has LF line endings"
+        fi
+        echo ""
+        echo "=== Applying patch ==="
+        git apply --stat "$PATCH_FILE" || echo "Warning: git apply --stat failed"
+        git apply --check --verbose "$PATCH_FILE" || {
+          echo "❌ Patch check failed, showing details:"
+          git apply --check "$PATCH_FILE" 2>&1 || true
+          exit 1
+        }
+        git apply --verbose "$PATCH_FILE"
         echo "✅ Patch applied successfully"
 
     - name: Set up Go

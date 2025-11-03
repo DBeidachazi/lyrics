@@ -128,7 +128,31 @@ jobs:
     - name: Apply full.patch to go-musicfox
       run: |
         cd ${{ github.workspace }}/go-musicfox
-        git apply --verbose ${{ github.workspace }}/taskbar-lyrics-musicfox/full.patch
+        
+        PATCH_FILE="${{ github.workspace }}/taskbar-lyrics-musicfox/full.patch"
+        
+        echo "=== Checking patch file ==="
+        if [ ! -f "$PATCH_FILE" ]; then
+          echo "❌ Patch file not found: $PATCH_FILE"
+          echo "Files in taskbar-lyrics-musicfox:"
+          ls -la ${{ github.workspace }}/taskbar-lyrics-musicfox/
+          exit 1
+        fi
+        
+        echo "✅ Patch file found: $PATCH_FILE"
+        echo "File size: $(wc -c < "$PATCH_FILE") bytes"
+        echo ""
+        echo "=== Checking for Windows line endings ==="
+        if file "$PATCH_FILE" | grep -q CRLF; then
+          echo "⚠️ Patch has CRLF line endings, converting to LF..."
+          dos2unix "$PATCH_FILE" 2>/dev/null || sed -i 's/\r$//' "$PATCH_FILE"
+          echo "✅ Converted to LF"
+        else
+          echo "✅ Patch already has LF line endings"
+        fi
+        echo ""
+        echo "=== Applying patch ==="
+        git apply --verbose "$PATCH_FILE"
         echo "✅ Patch applied successfully"
 
     - name: Set up Go
