@@ -13,6 +13,151 @@ index 11d8692..dfabbd7 100755
 +GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
 +CC=x86_64-w64-mingw32-gcc \
 +go build -trimpath -ldflags="-s -w" -o bin/musicfox.exe ./cmd/musicfox.go
+diff --git a/internal/configs/legacy.go b/internal/configs/legacy.go
+index 01c0602..a3a0776 100644
+--- a/internal/configs/legacy.go
++++ b/internal/configs/legacy.go
+@@ -90,6 +90,23 @@ func MigrateLegacyRegistry(legacyReg *Registry) *Config {
+ 	newConfig.Main.Lyric.ShowTranslation = legacyReg.Main.ShowLyricTrans
+ 	newConfig.Main.Lyric.Offset = legacyReg.Main.LyricOffset
+ 
++	// [main.lyric.taskbar]
++	newConfig.Main.Lyric.Taskbar.Enable = legacyReg.Main.TaskbarLyricEnable
++	newConfig.Main.Lyric.Taskbar.WindowAlignment = legacyReg.Main.TaskbarLyricWindowAlignment
++	newConfig.Main.Lyric.Taskbar.MarginLeft = legacyReg.Main.TaskbarLyricMarginLeft
++	newConfig.Main.Lyric.Taskbar.MarginRight = legacyReg.Main.TaskbarLyricMarginRight
++	newConfig.Main.Lyric.Taskbar.LineSpacing = legacyReg.Main.TaskbarLyricLineSpacing
++	newConfig.Main.Lyric.Taskbar.FontFamily = legacyReg.Main.TaskbarLyricFontFamily
++	newConfig.Main.Lyric.Taskbar.FollowSystemTheme = legacyReg.Main.TaskbarLyricFollowSystemTheme
++	newConfig.Main.Lyric.Taskbar.SizePrimary = legacyReg.Main.TaskbarLyricSizePrimary
++	newConfig.Main.Lyric.Taskbar.ColorPrimary = legacyReg.Main.TaskbarLyricColorPrimary
++	newConfig.Main.Lyric.Taskbar.WeightPrimary = legacyReg.Main.TaskbarLyricWeightPrimary
++	newConfig.Main.Lyric.Taskbar.AlignPrimary = legacyReg.Main.TaskbarLyricAlignPrimary
++	newConfig.Main.Lyric.Taskbar.SizeSecondary = legacyReg.Main.TaskbarLyricSizeSecondary
++	newConfig.Main.Lyric.Taskbar.ColorSecondary = legacyReg.Main.TaskbarLyricColorSecondary
++	newConfig.Main.Lyric.Taskbar.WeightSecondary = legacyReg.Main.TaskbarLyricWeightSecondary
++	newConfig.Main.Lyric.Taskbar.AlignSecondary = legacyReg.Main.TaskbarLyricAlignSecondary
++
+ 	// [main.pprof]
+ 	newConfig.Main.Pprof.Port = legacyReg.Main.PProfPort
+ 
+diff --git a/internal/configs/main.go b/internal/configs/main.go
+index b7e0618..a1ebff7 100644
+--- a/internal/configs/main.go
++++ b/internal/configs/main.go
+@@ -30,6 +30,22 @@ type MainOptions struct {
+ 	CenterEverything       bool                     // 界面全部居中
+ 	NeteaseCookie          string                   // 网易云音乐登录cookie
+ 	Debug                  bool                     // 是否启用 Debug
++	// 任务栏歌词配置 (仅 Windows, 用于 INI 迁移)
++	TaskbarLyricEnable            bool   // 启用任务栏歌词
++	TaskbarLyricWindowAlignment   int    // 窗口对齐
++	TaskbarLyricMarginLeft        int    // 左边距
++	TaskbarLyricMarginRight       int    // 右边距
++	TaskbarLyricLineSpacing       int    // 行间距
++	TaskbarLyricFontFamily        string // 字体
++	TaskbarLyricFollowSystemTheme bool   // 跟随系统主题
++	TaskbarLyricSizePrimary       int    // 主歌词字体大小
++	TaskbarLyricColorPrimary      uint32 // 主歌词颜色
++	TaskbarLyricWeightPrimary     int    // 主歌词字重
++	TaskbarLyricAlignPrimary      int    // 主歌词对齐
++	TaskbarLyricSizeSecondary     int    // 副歌词字体大小
++	TaskbarLyricColorSecondary    uint32 // 副歌词颜色
++	TaskbarLyricWeightSecondary   int    // 副歌词字重
++	TaskbarLyricAlignSecondary    int    // 副歌词对齐
+ }
+ 
+ // MainConfig 主界面与核心功能配置
+@@ -65,6 +81,27 @@ type LyricConfig struct {
+ 	ShowTranslation bool `koanf:"showTranslation"`
+ 	// 偏移: ms
+ 	Offset int `koanf:"offset"`
++	// 任务栏歌词配置 (仅 Windows)
++	Taskbar TaskbarLyricConfig `koanf:"taskbar"`
++}
++
++// TaskbarLyricConfig 任务栏歌词配置
++type TaskbarLyricConfig struct {
++	Enable            bool   `koanf:"enable"`
++	WindowAlignment   int    `koanf:"windowAlignment"`
++	MarginLeft        int    `koanf:"marginLeft"`
++	MarginRight       int    `koanf:"marginRight"`
++	LineSpacing       int    `koanf:"lineSpacing"`
++	FontFamily        string `koanf:"fontFamily"`
++	FollowSystemTheme bool   `koanf:"followSystemTheme"`
++	SizePrimary       int    `koanf:"sizePrimary"`
++	ColorPrimary      uint32 `koanf:"colorPrimary"`
++	WeightPrimary     int    `koanf:"weightPrimary"`
++	AlignPrimary      int    `koanf:"alignPrimary"`
++	SizeSecondary     int    `koanf:"sizeSecondary"`
++	ColorSecondary    uint32 `koanf:"colorSecondary"`
++	WeightSecondary   int    `koanf:"weightSecondary"`
++	AlignSecondary    int    `koanf:"alignSecondary"`
+ }
+ 
+ // PprofConfig Go 性能分析工具 pprof 的相关设置
+diff --git a/internal/configs/registry.go b/internal/configs/registry.go
+index 63fbd58..b8b9c06 100644
+--- a/internal/configs/registry.go
++++ b/internal/configs/registry.go
+@@ -205,6 +205,23 @@ func NewRegistryFromIniFile(filepath string) *Registry {
+ 	registry.Main.NeteaseCookie = ini.String("main.neteaseCookie", "")
+ 	registry.Main.Debug = ini.Bool("main.debug", false)
+ 
++	// 任务栏歌词配置 (仅 Windows)
++	registry.Main.TaskbarLyricEnable = ini.Bool("main.taskbarLyric.enable", true)
++	registry.Main.TaskbarLyricWindowAlignment = ini.Int("main.taskbarLyric.windowAlignment", 0)
++	registry.Main.TaskbarLyricMarginLeft = ini.Int("main.taskbarLyric.marginLeft", 10)
++	registry.Main.TaskbarLyricMarginRight = ini.Int("main.taskbarLyric.marginRight", 10)
++	registry.Main.TaskbarLyricLineSpacing = ini.Int("main.taskbarLyric.lineSpacing", 4)
++	registry.Main.TaskbarLyricFontFamily = ini.String("main.taskbarLyric.fontFamily", "Microsoft YaHei UI")
++	registry.Main.TaskbarLyricFollowSystemTheme = ini.Bool("main.taskbarLyric.followSystemTheme", true)
++	registry.Main.TaskbarLyricSizePrimary = ini.Int("main.taskbarLyric.sizePrimary", 20)
++	registry.Main.TaskbarLyricColorPrimary = uint32(ini.Int64("main.taskbarLyric.colorPrimary", 0xFFFFFFFF))
++	registry.Main.TaskbarLyricWeightPrimary = ini.Int("main.taskbarLyric.weightPrimary", 500)
++	registry.Main.TaskbarLyricAlignPrimary = ini.Int("main.taskbarLyric.alignPrimary", 0)
++	registry.Main.TaskbarLyricSizeSecondary = ini.Int("main.taskbarLyric.sizeSecondary", 13)
++	registry.Main.TaskbarLyricColorSecondary = uint32(ini.Int64("main.taskbarLyric.colorSecondary", 0xFF999999))
++	registry.Main.TaskbarLyricWeightSecondary = ini.Int("main.taskbarLyric.weightSecondary", 400)
++	registry.Main.TaskbarLyricAlignSecondary = ini.Int("main.taskbarLyric.alignSecondary", 0)
++
+ 	downloadDir := ini.String("main.downloadDir", "")
+ 	downloadLyricDir := ini.String("main.downloadLyricDir", "")
+ 	downloadFileNameTpl := ini.String("main.downloadFileNameTpl", "{{.SongName}}-{{.SongArtists}}.{{.FileExt}}")
+diff --git a/internal/keybindings/keybindings.go b/internal/keybindings/keybindings.go
+index b1eae7a..7ee5eb5 100644
+--- a/internal/keybindings/keybindings.go
++++ b/internal/keybindings/keybindings.go
+@@ -106,6 +106,9 @@ const (
+ 
+ 	OpActionOfSelected
+ 	OpActionOfPlayingSong
++	
++	OpTaskbarLyricIncreaseFontSize
++	OpTaskbarLyricDecreaseFontSize
+ )
+ 
+ var opNameToOperateMap = make(map[string]OperateType)
+@@ -174,6 +177,9 @@ var keyBindingsRegistry = map[OperateType]OperationInfo{
+ 
+ 	OpActionOfSelected:    {name: "actionOfSelected", desc: "对于选中项或当前播放的操作"},
+ 	OpActionOfPlayingSong: {name: "actionOfPlayingSong", desc: "对于当前播放的操作"},
++	
++	OpTaskbarLyricIncreaseFontSize: {name: "taskbarLyricIncreaseFontSize", desc: "增加任务栏歌词字体大小"},
++	OpTaskbarLyricDecreaseFontSize: {name: "taskbarLyricDecreaseFontSize", desc: "减小任务栏歌词字体大小"},
+ }
+ 
+ // 默认操作 -> 快捷键数组映射
+@@ -240,6 +246,9 @@ var defaultOtherOperateToKeys = map[OperateType][]string{
+ 
+ 	OpActionOfSelected:    {"m"},
+ 	OpActionOfPlayingSong: {"M"},
++	
++	OpTaskbarLyricIncreaseFontSize: {"+", "＋"},
++	OpTaskbarLyricDecreaseFontSize: {"_"},
+ }
+ 
+ var userOperateToKeys map[OperateType][]string
 diff --git a/internal/types/constants.go b/internal/types/constants.go
 index fe9ff7c..a4cde13 100644
 --- a/internal/types/constants.go
@@ -26,11 +171,28 @@ index fe9ff7c..a4cde13 100644
  	BuildTags    = ""
  	LastfmKey    = ""
  	LastfmSecret = ""
+diff --git a/internal/ui/event_handler.go b/internal/ui/event_handler.go
+index 582f900..e77941f 100644
+--- a/internal/ui/event_handler.go
++++ b/internal/ui/event_handler.go
+@@ -213,6 +213,12 @@ func (h *EventHandler) handle(op keybindings.OperateType) (bool, model.Page, tea
+ 		shareItem(h.netease, false)
+ 	case keybindings.OpShareSelectItem:
+ 		shareItem(h.netease, true)
++	case keybindings.OpTaskbarLyricIncreaseFontSize:
++		// 增加任务栏歌词字体大小
++		h.player.AdjustTaskbarLyricSize(2)
++	case keybindings.OpTaskbarLyricDecreaseFontSize:
++		// 减小任务栏歌词字体大小
++		h.player.AdjustTaskbarLyricSize(-2)
+ 	default:
+ 		return false, nil, nil
+ 	}
 diff --git a/internal/ui/player.go b/internal/ui/player.go
-index 019a8e3..f28506e 100644
+index 019a8e3..eaf9bbb 100644
 --- a/internal/ui/player.go
 +++ b/internal/ui/player.go
-@@ -4,8 +4,13 @@ import (
+@@ -4,8 +4,14 @@ import (
  	"context"
  	"fmt"
  	"log/slog"
@@ -38,20 +200,26 @@ index 019a8e3..f28506e 100644
 +	"path/filepath"
 +	"runtime"
  	"strconv"
++	"sync"
 +	"syscall"
  	"time"
 +	"unsafe"
  
  	"github.com/anhoder/foxful-cli/model"
  	"github.com/go-musicfox/netease-music/service"
-@@ -26,6 +31,141 @@ import (
+@@ -24,8 +30,244 @@ import (
+ 	"github.com/go-musicfox/go-musicfox/utils/netease"
+ 	"github.com/go-musicfox/go-musicfox/utils/notify"
  	_struct "github.com/go-musicfox/go-musicfox/utils/struct"
++	"golang.org/x/sys/windows/registry"
  )
  
 +// ==================== DLL Integration for Lyrics Display ====================
 +var (
-+	dllHandle     syscall.Handle
-+	setConfigProc *syscall.Proc
++	dllHandle         syscall.Handle
++	setConfigProc     *syscall.Proc
++	currentFontSize   int = 20
++	taskbarLyricMutex sync.Mutex
 +)
 +
 +// getDLLPath 获取 native.dll 的绝对路径（与可执行文件同目录）
@@ -89,6 +257,12 @@ index 019a8e3..f28506e 100644
 +func initLyricsPlugin() {
 +	// 仅在 Windows 平台上加载
 +	if runtime.GOOS != "windows" {
++		return
++	}
++
++	// 检查是否启用任务栏歌词
++	if !configs.AppConfig.Main.Lyric.Taskbar.Enable {
++		slog.Info("Taskbar lyrics disabled in config")
 +		return
 +	}
 +
@@ -130,34 +304,126 @@ index 019a8e3..f28506e 100644
 +	setConfigProc = proc
 +	slog.Info("Lyrics display plugin loaded successfully")
 +
-+	// 设置歌词样式：最左侧、14号微软雅黑、白色、正常字重
++	// 应用配置
++	applyTaskbarLyricConfig()
++}
++
++// applyTaskbarLyricConfig 应用任务栏歌词配置
++func applyTaskbarLyricConfig() {
++	if setConfigProc == nil {
++		return
++	}
++
++	cfg := configs.AppConfig.Main.Lyric.Taskbar
++
 +	setLyricStyle := func(key, value string) {
 +		keyPtr, _ := syscall.BytePtrFromString(key)
 +		valPtr, _ := syscall.BytePtrFromString(value)
-+		proc.Call(uintptr(unsafe.Pointer(keyPtr)), uintptr(unsafe.Pointer(valPtr)))
++		setConfigProc.Call(uintptr(unsafe.Pointer(keyPtr)), uintptr(unsafe.Pointer(valPtr)))
 +	}
 +
 +	// 通用设置
-+	setLyricStyle("font_family", "Microsoft YaHei UI")
-+	// window_alignment: 0=AUTO(自动检测), 1=LEFT(强制左), 2=CENTER(居中), 3=RIGHT(强制右)
-+	setLyricStyle("window_alignment", "0") // 0=AUTO 自动检测任务栏图标位置
-+	setLyricStyle("margin_left", "10")     // 左边距10像素
-+	setLyricStyle("margin_right", "10")    // 右边距10像素
-+	setLyricStyle("line_spacing", "4")     // 主副行间距4像素
++	setLyricStyle("font_family", cfg.FontFamily)
++	setLyricStyle("window_alignment", strconv.Itoa(cfg.WindowAlignment))
++	setLyricStyle("margin_left", strconv.Itoa(cfg.MarginLeft))
++	setLyricStyle("margin_right", strconv.Itoa(cfg.MarginRight))
++	setLyricStyle("line_spacing", strconv.Itoa(cfg.LineSpacing))
++
++	// 颜色处理：跟随系统主题或使用自定义颜色
++	var primaryColor, secondaryColor uint32
++	if cfg.FollowSystemTheme {
++		// 检测 Windows 主题
++		if isWindowsDarkMode() {
++			primaryColor = 0xFFFFFFFF   // 深色模式：白色
++			secondaryColor = 0xFF999999 // 深色模式：浅灰
++		} else {
++			primaryColor = 0xFF000000   // 浅色模式：黑色
++			secondaryColor = 0xFF666666 // 浅色模式：深灰
++		}
++		slog.Info("Using system theme colors",
++			slog.Bool("darkMode", isWindowsDarkMode()),
++			slog.String("primaryColor", fmt.Sprintf("0x%08X", primaryColor)))
++	} else {
++		primaryColor = cfg.ColorPrimary
++		secondaryColor = cfg.ColorSecondary
++	}
 +
 +	// 主歌词设置
-+	setLyricStyle("size_primary", "20")          // 20号字体
-+	setLyricStyle("color_primary", "0xFF222222") // 淡紫儿灰
-+	setLyricStyle("weight_primary", "500")       // 中等字重
-+	setLyricStyle("align_primary", "0")          // 文本左对齐
++	taskbarLyricMutex.Lock()
++	currentFontSize = cfg.SizePrimary
++	taskbarLyricMutex.Unlock()
++
++	setLyricStyle("size_primary", strconv.Itoa(cfg.SizePrimary))
++	setLyricStyle("color_primary", fmt.Sprintf("0x%08X", primaryColor))
++	setLyricStyle("weight_primary", strconv.Itoa(cfg.WeightPrimary))
++	setLyricStyle("align_primary", strconv.Itoa(cfg.AlignPrimary))
 +
 +	// 副歌词设置
-+	setLyricStyle("size_secondary", "13")          // 13号字体（稍小）
-+	setLyricStyle("color_secondary", "0xFF666666") // 浅灰色
-+	setLyricStyle("weight_secondary", "400")       // 正常字重
-+	setLyricStyle("align_secondary", "0")          // 文本左对齐
++	setLyricStyle("size_secondary", strconv.Itoa(cfg.SizeSecondary))
++	setLyricStyle("color_secondary", fmt.Sprintf("0x%08X", secondaryColor))
++	setLyricStyle("weight_secondary", strconv.Itoa(cfg.WeightSecondary))
++	setLyricStyle("align_secondary", strconv.Itoa(cfg.AlignSecondary))
 +
-+	slog.Info("Lyrics style configured: Left-aligned, 14px Microsoft YaHei UI, White")
++	slog.Info("Taskbar lyrics configured from config file")
++}
++
++// isWindowsDarkMode 检测 Windows 是否为深色模式
++func isWindowsDarkMode() bool {
++	if runtime.GOOS != "windows" {
++		return false
++	}
++
++	// 读取注册表检测主题
++	k, err := registry.OpenKey(registry.CURRENT_USER,
++		`Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`,
++		registry.QUERY_VALUE)
++	if err != nil {
++		return false
++	}
++	defer k.Close()
++
++	// AppsUseLightTheme: 0 = 深色模式, 1 = 浅色模式
++	val, _, err := k.GetIntegerValue("AppsUseLightTheme")
++	if err != nil {
++		return false
++	}
++
++	return val == 0
++}
++
++// adjustTaskbarLyricSize 调整任务栏歌词字体大小
++func adjustTaskbarLyricSize(delta int) {
++	if setConfigProc == nil {
++		return
++	}
++
++	taskbarLyricMutex.Lock()
++	currentFontSize += delta
++	if currentFontSize < 10 {
++		currentFontSize = 10
++	} else if currentFontSize > 48 {
++		currentFontSize = 48
++	}
++	newSize := currentFontSize
++	taskbarLyricMutex.Unlock()
++
++	setLyricStyle := func(key, value string) {
++		keyPtr, _ := syscall.BytePtrFromString(key)
++		valPtr, _ := syscall.BytePtrFromString(value)
++		setConfigProc.Call(uintptr(unsafe.Pointer(keyPtr)), uintptr(unsafe.Pointer(valPtr)))
++	}
++
++	setLyricStyle("size_primary", strconv.Itoa(newSize))
++	// 副歌词按比例调整
++	secondarySize := int(float64(newSize) * 0.65)
++	if secondarySize < 10 {
++		secondarySize = 10
++	}
++	setLyricStyle("size_secondary", strconv.Itoa(secondarySize))
++
++	slog.Info("Taskbar lyric size adjusted",
++		slog.Int("primarySize", newSize),
++		slog.Int("secondarySize", secondarySize))
 +}
 +
 +// sendLyricBySetConfig 通过 DLL SetConfig 函数发送歌词
@@ -186,7 +452,7 @@ index 019a8e3..f28506e 100644
  // PlayDirection 下首歌的方向
  type PlayDirection uint8
  
-@@ -87,6 +227,9 @@ type Player struct {
+@@ -87,6 +329,9 @@ type Player struct {
  }
  
  func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
@@ -196,7 +462,7 @@ index 019a8e3..f28506e 100644
  	reporterOptions := []reporter.Option{}
  	if configs.AppConfig.Reporter.Lastfm.Enable {
  		skipDjRadio := configs.AppConfig.Reporter.Lastfm.SkipDjRadio
-@@ -154,6 +297,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
+@@ -154,6 +399,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
  
  				p.lyricService.UpdatePosition(duration)
  
@@ -210,3 +476,62 @@ index 019a8e3..f28506e 100644
  				if p.renderTicker != nil {
  					select {
  					case p.renderTicker.c <- time.Now():
+@@ -530,6 +782,14 @@ func (p *Player) DownVolume() {
+ 	p.stateHandler.SetPlayingInfo(p.PlayingInfo())
+ }
+ 
++// AdjustTaskbarLyricSize 调整任务栏歌词字体大小
++func (p *Player) AdjustTaskbarLyricSize(delta int) {
++	if runtime.GOOS != "windows" {
++		return
++	}
++	adjustTaskbarLyricSize(delta)
++}
++
+ func (p *Player) SetVolume(volume int) {
+ 	p.Player.SetVolume(volume)
+ 
+diff --git a/utils/filex/embed/config.toml b/utils/filex/embed/config.toml
+index 907be75..9a82668 100644
+--- a/utils/filex/embed/config.toml
++++ b/utils/filex/embed/config.toml
+@@ -48,6 +48,39 @@ showTranslation = true
+ # 歌词显示时间的全局偏移量（毫秒），正值表示歌词提前显示
+ offset = 0
+ 
++# 任务栏歌词配置 (仅 Windows)
++[main.lyric.taskbar]
++# 是否启用任务栏歌词显示
++enable = true
++# 窗口对齐方式: 0=AUTO(自动), 1=LEFT(左), 2=CENTER(中), 3=RIGHT(右)
++windowAlignment = 0
++# 左边距（像素）
++marginLeft = 10
++# 右边距（像素）
++marginRight = 10
++# 行间距（像素）
++lineSpacing = 4
++# 字体名称
++fontFamily = "Microsoft YaHei UI"
++# 是否跟随系统主题颜色 (true=跟随系统, false=使用自定义颜色)
++followSystemTheme = true
++# 主歌词字体大小
++sizePrimary = 20
++# 主歌词颜色 (ARGB格式，如 0xFFFFFFFF 表示白色)
++colorPrimary = 0xFFFFFFFF
++# 主歌词字重 (100-900，400=普通，700=粗体)
++weightPrimary = 500
++# 主歌词文本对齐: 0=LEFT, 1=RIGHT, 2=CENTER
++alignPrimary = 0
++# 副歌词字体大小
++sizeSecondary = 13
++# 副歌词颜色
++colorSecondary = 0xFF999999
++# 副歌词字重
++weightSecondary = 400
++# 副歌词文本对齐
++alignSecondary = 0
++
+ # Go性能分析工具pprof的相关设置
+ [main.pprof]
+ # pprof 服务监听的端口，通过 --pprof 命令行选项启用
