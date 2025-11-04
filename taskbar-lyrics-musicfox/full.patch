@@ -172,7 +172,7 @@ index fe9ff7c..a4cde13 100644
  	LastfmKey    = ""
  	LastfmSecret = ""
 diff --git a/internal/ui/event_handler.go b/internal/ui/event_handler.go
-index 582f900..e77941f 100644
+index 582f900..077497c 100644
 --- a/internal/ui/event_handler.go
 +++ b/internal/ui/event_handler.go
 @@ -213,6 +213,12 @@ func (h *EventHandler) handle(op keybindings.OperateType) (bool, model.Page, tea
@@ -181,10 +181,10 @@ index 582f900..e77941f 100644
  		shareItem(h.netease, true)
 +	case keybindings.OpTaskbarLyricIncreaseFontSize:
 +		// 增加任务栏歌词字体大小
-+		h.player.AdjustTaskbarLyricSize(2)
++		player.AdjustTaskbarLyricSize(2)
 +	case keybindings.OpTaskbarLyricDecreaseFontSize:
 +		// 减小任务栏歌词字体大小
-+		h.player.AdjustTaskbarLyricSize(-2)
++		player.AdjustTaskbarLyricSize(-2)
  	default:
  		return false, nil, nil
  	}
