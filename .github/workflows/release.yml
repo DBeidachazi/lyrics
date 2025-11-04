@@ -263,7 +263,7 @@ jobs:
           4. 运行 `musicfox.exe` 即可享受任务栏歌词功能
           
           ### ⚠️ 系统要求
-          - Windows 10/11（推荐 Windows 11 以获得最佳体验）
+          - Windows 11
           - 需要 Windows Terminal 或其他现代终端
           
           ### 🔧 技术说明
