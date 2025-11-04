@@ -125,7 +125,7 @@ index 63fbd58..b8b9c06 100644
  	downloadLyricDir := ini.String("main.downloadLyricDir", "")
  	downloadFileNameTpl := ini.String("main.downloadFileNameTpl", "{{.SongName}}-{{.SongArtists}}.{{.FileExt}}")
 diff --git a/internal/keybindings/keybindings.go b/internal/keybindings/keybindings.go
-index b1eae7a..7ee5eb5 100644
+index b1eae7a..dd835a3 100644
 --- a/internal/keybindings/keybindings.go
 +++ b/internal/keybindings/keybindings.go
 @@ -106,6 +106,9 @@ const (
@@ -153,8 +153,8 @@ index b1eae7a..7ee5eb5 100644
  	OpActionOfSelected:    {"m"},
  	OpActionOfPlayingSong: {"M"},
 +	
-+	OpTaskbarLyricIncreaseFontSize: {"+", "＋"},
-+	OpTaskbarLyricDecreaseFontSize: {"_"},
++	OpTaskbarLyricIncreaseFontSize: {"ctrl+="},
++	OpTaskbarLyricDecreaseFontSize: {"ctrl+-"},
  }
  
  var userOperateToKeys map[OperateType][]string
