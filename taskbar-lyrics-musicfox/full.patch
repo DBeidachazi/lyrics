@@ -27,7 +27,7 @@ index fe9ff7c..a4cde13 100644
  	LastfmKey    = ""
  	LastfmSecret = ""
 diff --git a/internal/ui/player.go b/internal/ui/player.go
-index 019a8e3..fa19aef 100644
+index 019a8e3..f28506e 100644
 --- a/internal/ui/player.go
 +++ b/internal/ui/player.go
 @@ -4,8 +4,13 @@ import (
@@ -44,7 +44,7 @@ index 019a8e3..fa19aef 100644
  
  	"github.com/anhoder/foxful-cli/model"
  	"github.com/go-musicfox/netease-music/service"
-@@ -26,6 +31,139 @@ import (
+@@ -26,6 +31,141 @@ import (
  	_struct "github.com/go-musicfox/go-musicfox/utils/struct"
  )
  
@@ -139,8 +139,10 @@ index 019a8e3..fa19aef 100644
 +
 +	// 通用设置
 +	setLyricStyle("font_family", "Microsoft YaHei UI")
-+	setLyricStyle("window_alignment", "1") // 1=左对齐
++	// window_alignment: 0=AUTO(自动检测), 1=LEFT(强制左), 2=CENTER(居中), 3=RIGHT(强制右)
++	setLyricStyle("window_alignment", "0") // 0=AUTO 自动检测任务栏图标位置
 +	setLyricStyle("margin_left", "10")     // 左边距10像素
++	setLyricStyle("margin_right", "10")    // 右边距10像素
 +	setLyricStyle("line_spacing", "4")     // 主副行间距4像素
 +
 +	// 主歌词设置
@@ -184,7 +186,7 @@ index 019a8e3..fa19aef 100644
  // PlayDirection 下首歌的方向
  type PlayDirection uint8
  
-@@ -87,6 +225,9 @@ type Player struct {
+@@ -87,6 +227,9 @@ type Player struct {
  }
  
  func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
@@ -194,7 +196,7 @@ index 019a8e3..fa19aef 100644
  	reporterOptions := []reporter.Option{}
  	if configs.AppConfig.Reporter.Lastfm.Enable {
  		skipDjRadio := configs.AppConfig.Reporter.Lastfm.SkipDjRadio
-@@ -154,6 +295,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
+@@ -154,6 +297,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
  
  				p.lyricService.UpdatePosition(duration)
  

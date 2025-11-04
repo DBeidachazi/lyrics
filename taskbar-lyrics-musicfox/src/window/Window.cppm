@@ -194,30 +194,44 @@ public:
         auto width = 0L;
         auto height = 0L;
 
+        logWindow("update() - taskListRect: left=" + std::to_string(taskListRect.left) +
+                 ", right=" + std::to_string(taskListRect.right));
+        logWindow("update() - trayFrameRect: left=" + std::to_string(trayFrameRect.left) +
+                 ", right=" + std::to_string(trayFrameRect.right));
+        logWindow("update() - widgetsButtonRect: left=" + std::to_string(widgetsButtonRect.left) +
+                 ", right=" + std::to_string(widgetsButtonRect.right));
+
         switch (config.window_alignment) {
             case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_AUTO: {
+                // 自动模式：根据任务栏图标位置自动调整歌词显示位置
                 if (Registry::isTaskbarCentered()) {
+                    // 图标居中时：歌词显示在左侧（Widgets按钮右侧到任务列表左侧）
+                    logWindow("AUTO mode - Taskbar icons centered, displaying lyrics on LEFT");
                     width += taskListRect.left;
                     if (Registry::isWidgetsEnabled()) {
                         offset += widgetsButtonRect.right;
                     }
-                    break;
+                } else {
+                    // 图标居左时：歌词显示在右侧（任务列表右侧到托盘左侧）
+                    logWindow("AUTO mode - Taskbar icons left-aligned, displaying lyrics on RIGHT");
+                    offset += taskListRect.right;
+                    width += trayFrameRect.left;
                 }
-                [[fallthrough]];
+                logWindow("update() - after AUTO: offset=" + std::to_string(offset) + 
+                         ", width=" + std::to_string(width));
+                break;
             }
             case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_RIGHT: {
+                // 强制右对齐：歌词显示在任务列表右侧到托盘左侧
+                logWindow("RIGHT mode - forcing lyrics on RIGHT");
                 offset += taskListRect.right;
-                if (Registry::isTaskbarCentered()) {
-                    width += trayFrameRect.left;
-                } else if (Registry::isWidgetsEnabled()) {
-                    width += widgetsButtonRect.left;
-                } else {
-                    width += trayFrameRect.left;
-                }
+                width += trayFrameRect.left;
+                logWindow("update() - after RIGHT: offset=" + std::to_string(offset) + 
+                         ", width=" + std::to_string(width));
                 break;
             }
             case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_LEFT: {
-                // 真正的左对齐：从 Widgets 按钮右侧或任务栏起始位置开始
+                // 强制左对齐：歌词显示在任务栏左侧（Widgets按钮右侧到任务列表左侧）
                 if (Registry::isWidgetsEnabled()) {
                     offset += widgetsButtonRect.right;
                     width += taskListRect.left;
@@ -228,6 +242,7 @@ public:
                 break;
             }
             case TASKBAR_WINDOW_ALIGNMENT::TASKBAR_WINDOW_ALIGNMENT_CENTER: {
+                // 居中模式：歌词占据整个任务栏宽度
                 offset += taskbarFrame.left;
                 width += taskbarFrame.right;
                 break;
