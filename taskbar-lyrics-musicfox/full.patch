@@ -215,7 +215,7 @@ index 582f900..077497c 100644
  		return false, nil, nil
  	}
 diff --git a/internal/ui/player.go b/internal/ui/player.go
-index 019a8e3..da5de4b 100644
+index 019a8e3..f43d4d1 100644
 --- a/internal/ui/player.go
 +++ b/internal/ui/player.go
 @@ -4,8 +4,14 @@ import (
@@ -233,7 +233,7 @@ index 019a8e3..da5de4b 100644
  
  	"github.com/anhoder/foxful-cli/model"
  	"github.com/go-musicfox/netease-music/service"
-@@ -24,8 +30,286 @@ import (
+@@ -24,8 +30,280 @@ import (
  	"github.com/go-musicfox/go-musicfox/utils/netease"
  	"github.com/go-musicfox/go-musicfox/utils/notify"
  	_struct "github.com/go-musicfox/go-musicfox/utils/struct"
@@ -420,43 +420,37 @@ index 019a8e3..da5de4b 100644
 +	}
 +	defer k.Close()
 +
-+	// Win10/11: 检测两个主题键，任意一个为 0 就是深色模式
-+	// AppsUseLightTheme: 0 = 深色模式, 1 = 浅色模式
-+	// SystemUsesLightTheme: 0 = 深色模式, 1 = 浅色模式
++	// Win10/11: 检测任务栏主题
++	// SystemUsesLightTheme - 控制任务栏颜色（优先使用）
++	// AppsUseLightTheme - 控制应用窗口颜色（备用）
++	// 值：0 = 深色模式, 1 = 浅色模式
 +	
-+	appsVal, _, appsErr := k.GetIntegerValue("AppsUseLightTheme")
 +	sysVal, _, sysErr := k.GetIntegerValue("SystemUsesLightTheme")
++	appsVal, _, appsErr := k.GetIntegerValue("AppsUseLightTheme")
 +	
-+	// 记录检测到的值
-+	if appsErr == nil {
-+		slog.Info("AppsUseLightTheme detected", slog.Uint64("value", appsVal))
-+	} else {
-+		slog.Info("AppsUseLightTheme not found", slog.String("error", appsErr.Error()))
-+	}
-+	
++	// 优先使用 SystemUsesLightTheme（任务栏主题）
 +	if sysErr == nil {
-+		slog.Info("SystemUsesLightTheme detected", slog.Uint64("value", sysVal))
-+	} else {
-+		slog.Info("SystemUsesLightTheme not found", slog.String("error", sysErr.Error()))
++		isDark := sysVal == 0
++		slog.Info("Taskbar theme detected via SystemUsesLightTheme", 
++			slog.Uint64("value", sysVal), 
++			slog.Bool("isDark", isDark))
++		return isDark
 +	}
 +	
-+	// 判断逻辑：任意一个值为 0，就是深色模式
-+	isDark := false
-+	if appsErr == nil && appsVal == 0 {
-+		isDark = true
-+	}
-+	if sysErr == nil && sysVal == 0 {
-+		isDark = true
-+	}
-+	
-+	// 如果两个都读取失败，默认浅色模式
-+	if appsErr != nil && sysErr != nil {
-+		slog.Warn("Both theme values unavailable, defaulting to light mode")
-+		return false
++	// 备用方案：使用 AppsUseLightTheme
++	if appsErr == nil {
++		isDark := appsVal == 0
++		slog.Info("Theme detected via AppsUseLightTheme (fallback)", 
++			slog.Uint64("value", appsVal), 
++			slog.Bool("isDark", isDark))
++		return isDark
 +	}
 +	
-+	slog.Info("Final theme decision", slog.Bool("isDark", isDark))
-+	return isDark
++	// 两个都读取失败
++	slog.Warn("Both theme values unavailable, defaulting to light mode",
++		slog.String("sysError", sysErr.Error()),
++		slog.String("appsError", appsErr.Error()))
++	return false
 +}
 +
 +// adjustTaskbarLyricSize 调整任务栏歌词字体大小
@@ -520,7 +514,7 @@ index 019a8e3..da5de4b 100644
  // PlayDirection 下首歌的方向
  type PlayDirection uint8
  
-@@ -87,6 +371,9 @@ type Player struct {
+@@ -87,6 +365,9 @@ type Player struct {
  }
  
  func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
@@ -530,7 +524,7 @@ index 019a8e3..da5de4b 100644
  	reporterOptions := []reporter.Option{}
  	if configs.AppConfig.Reporter.Lastfm.Enable {
  		skipDjRadio := configs.AppConfig.Reporter.Lastfm.SkipDjRadio
-@@ -154,6 +441,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
+@@ -154,6 +435,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
  
  				p.lyricService.UpdatePosition(duration)
  
@@ -544,7 +538,7 @@ index 019a8e3..da5de4b 100644
  				if p.renderTicker != nil {
  					select {
  					case p.renderTicker.c <- time.Now():
-@@ -530,6 +824,14 @@ func (p *Player) DownVolume() {
+@@ -530,6 +818,14 @@ func (p *Player) DownVolume() {
  	p.stateHandler.SetPlayingInfo(p.PlayingInfo())
  }
  
