@@ -158,6 +158,32 @@ index b1eae7a..593b865 100644
  }
  
  var userOperateToKeys map[OperateType][]string
+diff --git a/internal/player/win_media_player_windows.go b/internal/player/win_media_player_windows.go
+index d06054a..051b2b1 100644
+--- a/internal/player/win_media_player_windows.go
++++ b/internal/player/win_media_player_windows.go
+@@ -246,7 +246,9 @@ func (p *winMediaPlayer) Pause() {
+ 		return
+ 	}
+ 	Must(p.player.Pause())
+-	p.timer.Pause()
++	if p.timer != nil {
++		p.timer.Pause()
++	}
+ }
+ 
+ func (p *winMediaPlayer) Resume() {
+@@ -255,7 +257,9 @@ func (p *winMediaPlayer) Resume() {
+ 	if p.state == types.Playing {
+ 		return
+ 	}
+-	go p.timer.Run()
++	if p.timer != nil {
++		go p.timer.Run()
++	}
+ 	Must(p.player.Play())
+ }
+ 
 diff --git a/internal/types/constants.go b/internal/types/constants.go
 index fe9ff7c..a4cde13 100644
 --- a/internal/types/constants.go
@@ -189,7 +215,7 @@ index 582f900..077497c 100644
  		return false, nil, nil
  	}
 diff --git a/internal/ui/player.go b/internal/ui/player.go
-index 019a8e3..eaf9bbb 100644
+index 019a8e3..a9d7e3d 100644
 --- a/internal/ui/player.go
 +++ b/internal/ui/player.go
 @@ -4,8 +4,14 @@ import (
@@ -207,7 +233,7 @@ index 019a8e3..eaf9bbb 100644
  
  	"github.com/anhoder/foxful-cli/model"
  	"github.com/go-musicfox/netease-music/service"
-@@ -24,8 +30,244 @@ import (
+@@ -24,8 +30,255 @@ import (
  	"github.com/go-musicfox/go-musicfox/utils/netease"
  	"github.com/go-musicfox/go-musicfox/utils/notify"
  	_struct "github.com/go-musicfox/go-musicfox/utils/struct"
@@ -331,9 +357,16 @@ index 019a8e3..eaf9bbb 100644
 +
 +	// 颜色处理：跟随系统主题或使用自定义颜色
 +	var primaryColor, secondaryColor uint32
++	
++	slog.Info("Taskbar lyric theme settings",
++		slog.Bool("followSystemTheme", cfg.FollowSystemTheme),
++		slog.String("configColorPrimary", fmt.Sprintf("0x%08X", cfg.ColorPrimary)),
++		slog.String("configColorSecondary", fmt.Sprintf("0x%08X", cfg.ColorSecondary)))
++	
 +	if cfg.FollowSystemTheme {
 +		// 检测 Windows 主题
-+		if isWindowsDarkMode() {
++		isDark := isWindowsDarkMode()
++		if isDark {
 +			primaryColor = 0xFFFFFFFF   // 深色模式：白色
 +			secondaryColor = 0xFF999999 // 深色模式：浅灰
 +		} else {
@@ -341,11 +374,15 @@ index 019a8e3..eaf9bbb 100644
 +			secondaryColor = 0xFF666666 // 浅色模式：深灰
 +		}
 +		slog.Info("Using system theme colors",
-+			slog.Bool("darkMode", isWindowsDarkMode()),
-+			slog.String("primaryColor", fmt.Sprintf("0x%08X", primaryColor)))
++			slog.Bool("darkMode", isDark),
++			slog.String("primaryColor", fmt.Sprintf("0x%08X", primaryColor)),
++			slog.String("secondaryColor", fmt.Sprintf("0x%08X", secondaryColor)))
 +	} else {
 +		primaryColor = cfg.ColorPrimary
 +		secondaryColor = cfg.ColorSecondary
++		slog.Info("Using custom colors (followSystemTheme is false)",
++			slog.String("primaryColor", fmt.Sprintf("0x%08X", primaryColor)),
++			slog.String("secondaryColor", fmt.Sprintf("0x%08X", secondaryColor)))
 +	}
 +
 +	// 主歌词设置
@@ -452,7 +489,7 @@ index 019a8e3..eaf9bbb 100644
  // PlayDirection 下首歌的方向
  type PlayDirection uint8
  
-@@ -87,6 +329,9 @@ type Player struct {
+@@ -87,6 +340,9 @@ type Player struct {
  }
  
  func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
@@ -462,7 +499,7 @@ index 019a8e3..eaf9bbb 100644
  	reporterOptions := []reporter.Option{}
  	if configs.AppConfig.Reporter.Lastfm.Enable {
  		skipDjRadio := configs.AppConfig.Reporter.Lastfm.SkipDjRadio
-@@ -154,6 +399,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
+@@ -154,6 +410,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
  
  				p.lyricService.UpdatePosition(duration)
  
@@ -476,7 +513,7 @@ index 019a8e3..eaf9bbb 100644
  				if p.renderTicker != nil {
  					select {
  					case p.renderTicker.c <- time.Now():
-@@ -530,6 +782,14 @@ func (p *Player) DownVolume() {
+@@ -530,6 +793,14 @@ func (p *Player) DownVolume() {
  	p.stateHandler.SetPlayingInfo(p.PlayingInfo())
  }
  
