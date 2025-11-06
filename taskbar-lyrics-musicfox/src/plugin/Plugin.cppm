@@ -10,11 +10,15 @@ export module plugin.Plugin;
 
 import plugin.Config;
 import window.Window;
+import window.WindowWin10;
+import utils.WindowsVersion;
 
 export class Plugin {
 public:
     HANDLE mutex = nullptr;
     Window *window = nullptr;
+    WindowWin10 *windowWin10 = nullptr;
+    bool isWin10Mode = false;
 
 private:
     std::atomic_bool refreshPending{false};
@@ -42,24 +46,52 @@ private:
             delete this->window;
             this->window = nullptr;
         }
+        if (this->windowWin10) {
+            delete this->windowWin10;
+            this->windowWin10 = nullptr;
+        }
     }
 
     auto initialize() -> void {
+        // 初始化 Windows 版本检测
+        WindowsVersion::initialize();
+        
+        // 判断是否为 Windows 10
+        isWin10Mode = WindowsVersion::isWindows10();
+        
         std::thread([this] {
-            this->window = new Window();
-            this->window->create();
+            if (isWin10Mode) {
+                // Windows 10
+                this->windowWin10 = new WindowWin10();
+                this->windowWin10->create();
 
-            // 等待 window 就绪（有 HWND）——短轮询
-            for (int i = 0; i < 500 && !this->window->isReady(); ++i) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                // 等待 window 就绪
+                for (int i = 0; i < 500 && !this->windowWin10->isReady(); ++i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+
+                if (this->refreshPending.exchange(false)) {
+                    this->windowWin10->postRefresh();
+                }
+
+                this->windowWin10->runner();
+            } else {
+                // Windows 11: 使用原有 UI Automation 方式
+                this->window = new Window();
+                this->window->create();
+
+                // 等待 window 就绪（有 HWND）——短轮询
+                for (int i = 0; i < 500 && !this->window->isReady(); ++i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+
+                // 如果在 window 未就绪时有刷新请求，主动触发一次
+                if (this->refreshPending.exchange(false)) {
+                    this->window->postRefresh();
+                }
+
+                this->window->runner();
             }
-
-            // 如果在 window 未就绪时有刷新请求，主动触发一次
-            if (this->refreshPending.exchange(false)) {
-                this->window->postRefresh();
-            }
-
-            this->window->runner();
         }).detach();
     }
 
@@ -74,7 +106,12 @@ public:
     static auto refresh() -> void {
         auto &inst = Plugin::getInstance();
 
-        if (inst.window && inst.window->isReady()) {
+        // 根据模式选择不同的窗口实例
+        bool isReady = inst.isWin10Mode ? 
+            (inst.windowWin10 && inst.windowWin10->isReady()) :
+            (inst.window && inst.window->isReady());
+
+        if (isReady) {
             // 使用节流：检查距离上次刷新是否已过最小间隔
             std::lock_guard<std::mutex> lock(inst.refreshMutex);
             auto now = std::chrono::steady_clock::now();
@@ -82,7 +119,11 @@ public:
 
             if (elapsed >= MIN_REFRESH_INTERVAL_MS) {
                 // 已过最小间隔，立即刷新
-                inst.window->postRefresh();
+                if (inst.isWin10Mode) {
+                    inst.windowWin10->postRefresh();
+                } else {
+                    inst.window->postRefresh();
+                }
                 inst.lastRefreshTime = now;
             } else {
                 // 未达到最小间隔，标记为待刷新（会在下次有机会时刷新）

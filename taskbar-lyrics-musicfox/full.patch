@@ -215,10 +215,10 @@ index 582f900..077497c 100644
  		return false, nil, nil
  	}
 diff --git a/internal/ui/player.go b/internal/ui/player.go
-index 019a8e3..f43d4d1 100644
+index 019a8e3..166b85d 100644
 --- a/internal/ui/player.go
 +++ b/internal/ui/player.go
-@@ -4,8 +4,14 @@ import (
+@@ -4,8 +4,15 @@ import (
  	"context"
  	"fmt"
  	"log/slog"
@@ -226,6 +226,7 @@ index 019a8e3..f43d4d1 100644
 +	"path/filepath"
 +	"runtime"
  	"strconv"
++	"strings"
 +	"sync"
 +	"syscall"
  	"time"
@@ -233,7 +234,7 @@ index 019a8e3..f43d4d1 100644
  
  	"github.com/anhoder/foxful-cli/model"
  	"github.com/go-musicfox/netease-music/service"
-@@ -24,8 +30,280 @@ import (
+@@ -24,8 +31,372 @@ import (
  	"github.com/go-musicfox/go-musicfox/utils/netease"
  	"github.com/go-musicfox/go-musicfox/utils/notify"
  	_struct "github.com/go-musicfox/go-musicfox/utils/struct"
@@ -368,7 +369,7 @@ index 019a8e3..f43d4d1 100644
 +		isDark := isWindowsDarkMode()
 +		if isDark {
 +			primaryColor = 0xFFFFFFFF   // 深色模式：白色
-+			secondaryColor = 0xFF999999 // 深色模式：浅灰
++			secondaryColor = 0xFFCCCCCC // 深色模式：亮灰色（更清晰）
 +		} else {
 +			primaryColor = 0xFF000000   // 浅色模式：黑色
 +			secondaryColor = 0xFF666666 // 浅色模式：深灰
@@ -486,6 +487,98 @@ index 019a8e3..f43d4d1 100644
 +	slog.Info("Taskbar lyric size adjusted",
 +		slog.Int("primarySize", newSize),
 +		slog.Int("secondarySize", secondarySize))
++
++	// 保存配置到文件
++	saveTaskbarLyricSizeToConfig(newSize, secondarySize)
++}
++
++// saveTaskbarLyricSizeToConfig 保存任务栏歌词字体大小到配置文件
++func saveTaskbarLyricSizeToConfig(primarySize, secondarySize int) {
++	configPath := app.ConfigFilePath()
++	if configPath == "" {
++		slog.Warn("Config file path is empty, cannot save")
++		return
++	}
++
++	// 读取现有配置文件
++	content, err := os.ReadFile(configPath)
++	if err != nil {
++		slog.Warn("Failed to read config file", slog.String("error", err.Error()))
++		return
++	}
++
++	lines := strings.Split(string(content), "\n")
++	var newLines []string
++	var inTaskbarSection bool
++	primaryUpdated := false
++	secondaryUpdated := false
++
++	for _, line := range lines {
++		trimmed := strings.TrimSpace(line)
++		
++		// 检测是否进入 [main.taskbarLyric] 部分
++		if strings.HasPrefix(trimmed, "[main.taskbarLyric") || trimmed == "[main.taskbarLyric]" {
++			inTaskbarSection = true
++			newLines = append(newLines, line)
++			continue
++		}
++		
++		// 检测是否离开当前section（进入新的section）
++		if strings.HasPrefix(trimmed, "[") && inTaskbarSection {
++			// 如果还没更新，在section结束前添加
++			if inTaskbarSection && !primaryUpdated {
++				newLines = append(newLines, fmt.Sprintf("sizePrimary = %d", primarySize))
++				primaryUpdated = true
++			}
++			if inTaskbarSection && !secondaryUpdated {
++				newLines = append(newLines, fmt.Sprintf("sizeSecondary = %d", secondarySize))
++				secondaryUpdated = true
++			}
++			inTaskbarSection = false
++		}
++		
++		// 在 taskbar section 中更新字体大小
++		if inTaskbarSection {
++			if strings.HasPrefix(trimmed, "sizePrimary") {
++				newLines = append(newLines, fmt.Sprintf("sizePrimary = %d", primarySize))
++				primaryUpdated = true
++				continue
++			}
++			if strings.HasPrefix(trimmed, "sizeSecondary") {
++				newLines = append(newLines, fmt.Sprintf("sizeSecondary = %d", secondarySize))
++				secondaryUpdated = true
++				continue
++			}
++		}
++		
++		newLines = append(newLines, line)
++	}
++
++	// 如果到文件末尾还在 taskbar section 且没有更新，添加配置
++	if inTaskbarSection {
++		if !primaryUpdated {
++			newLines = append(newLines, fmt.Sprintf("sizePrimary = %d", primarySize))
++		}
++		if !secondaryUpdated {
++			newLines = append(newLines, fmt.Sprintf("sizeSecondary = %d", secondarySize))
++		}
++	}
++
++	// 写回配置文件
++	newContent := strings.Join(newLines, "\n")
++	if err := os.WriteFile(configPath, []byte(newContent), 0644); err != nil {
++		slog.Warn("Failed to write config file", slog.String("error", err.Error()))
++		return
++	}
++
++	// 同时更新内存中的配置
++	configs.AppConfig.Main.Lyric.Taskbar.SizePrimary = primarySize
++	configs.AppConfig.Main.Lyric.Taskbar.SizeSecondary = secondarySize
++
++	slog.Info("Taskbar lyric size saved to config file",
++		slog.String("path", configPath),
++		slog.Int("primarySize", primarySize),
++		slog.Int("secondarySize", secondarySize))
 +}
 +
 +// sendLyricBySetConfig 通过 DLL SetConfig 函数发送歌词
@@ -514,7 +607,7 @@ index 019a8e3..f43d4d1 100644
  // PlayDirection 下首歌的方向
  type PlayDirection uint8
  
-@@ -87,6 +365,9 @@ type Player struct {
+@@ -87,6 +458,9 @@ type Player struct {
  }
  
  func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
@@ -524,7 +617,7 @@ index 019a8e3..f43d4d1 100644
  	reporterOptions := []reporter.Option{}
  	if configs.AppConfig.Reporter.Lastfm.Enable {
  		skipDjRadio := configs.AppConfig.Reporter.Lastfm.SkipDjRadio
-@@ -154,6 +435,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
+@@ -154,6 +528,13 @@ func NewPlayer(n *Netease, lyricService *lyric.Service) *Player {
  
  				p.lyricService.UpdatePosition(duration)
  
@@ -538,7 +631,7 @@ index 019a8e3..f43d4d1 100644
  				if p.renderTicker != nil {
  					select {
  					case p.renderTicker.c <- time.Now():
-@@ -530,6 +818,14 @@ func (p *Player) DownVolume() {
+@@ -530,6 +911,14 @@ func (p *Player) DownVolume() {
  	p.stateHandler.SetPlayingInfo(p.PlayingInfo())
  }
  

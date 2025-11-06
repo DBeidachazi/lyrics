@@ -23,6 +23,8 @@ target_sources(native
             "src/window/Lyrics.cppm"
             "src/window/Renderer.cppm"
             "src/window/Window.cppm"
+            "src/window/WindowWin10.cppm"
+            "src/utils/WindowsVersion.cppm"
             "src/plugin/Plugin.cppm"
     PRIVATE
         "src/DllMain.cpp"
@@ -35,3 +37,4 @@ target_link_libraries(native PRIVATE dxgi)
 target_link_libraries(native PRIVATE dcomp)
 target_link_libraries(native PRIVATE dwmapi)
 target_link_libraries(native PRIVATE UIAutomationCore)
+target_link_libraries(native PRIVATE oleacc)
