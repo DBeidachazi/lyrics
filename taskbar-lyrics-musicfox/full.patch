@@ -215,7 +215,7 @@ index 582f900..077497c 100644
  		return false, nil, nil
  	}
 diff --git a/internal/ui/player.go b/internal/ui/player.go
-index 019a8e3..166b85d 100644
+index 019a8e3..dc1b81b 100644
 --- a/internal/ui/player.go
 +++ b/internal/ui/player.go
 @@ -4,8 +4,15 @@ import (
@@ -516,8 +516,8 @@ index 019a8e3..166b85d 100644
 +	for _, line := range lines {
 +		trimmed := strings.TrimSpace(line)
 +		
-+		// 检测是否进入 [main.taskbarLyric] 部分
-+		if strings.HasPrefix(trimmed, "[main.taskbarLyric") || trimmed == "[main.taskbarLyric]" {
++		// 检测是否进入 [main.lyric.taskbar] 部分
++		if strings.HasPrefix(trimmed, "[main.lyric.taskbar") || trimmed == "[main.lyric.taskbar]" {
 +			inTaskbarSection = true
 +			newLines = append(newLines, line)
 +			continue

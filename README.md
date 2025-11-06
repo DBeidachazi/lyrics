@@ -1,4 +1,4 @@
-# go-musicfox 任务栏歌词 (Windows 11)
+# go-musicfox 任务栏歌词 (Windows 11/10)
 
 为 [go-musicfox](https://github.com/go-musicfox/go-musicfox) 添加 Windows 任务栏歌词显示功能。
 
@@ -249,8 +249,38 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize
 - [go-musicfox](https://github.com/go-musicfox/go-musicfox) - 命令行音乐播放器
 - [Taskbar-Lyrics](https://github.com/jitwxs/Taskbar-Lyrics) - 任务栏歌词显示参考
 - [lyric-for-musicfox](https://github.com/SmileYik/lyric-for-musicfox) - 桌面歌词实现参考
+- [TrayS](https://github.com/cgbsmy/TrayS) - 任务栏显示参考
 
 ## 📝 更新日志
+
+### v0.2.0 (2025-11-06)
+
+#### ✨ 新功能
+- ✅ **支持 Windows 10** - 完整支持 Windows 10 任务栏歌词显示
+- ✅ **字体大小配置保存** - 使用 `()` 快捷键调整字体大小后自动保存到配置文件
+
+#### 🎨 改进
+- 🎨 **深色主题副歌词优化** - 副歌词颜色从 `0xFF999999` 改为 `0xFFCCCCCC`，深色主题下更清晰
+- 🎨 **字体渲染质量提升** - 使用 `ANTIALIASED_QUALITY` 和高级图形模式，文字显示更平滑
+- ⚡ **滚动体验优化**
+  - 增加初始停顿 0.5 秒，切换歌词后更自然
+  - 滚动速度提升至 3.0 像素/帧
+  - 滚动到末尾停止，不再循环
+  - 从左对齐开始显示，避免空白滚入
+
+#### 🐛 修复
+- 🔧 **修复 Win10 字体大小调整** - Win10 下使用快捷键调整字体大小现在能正确生效
+- 🔧 **修复配置文件 section 匹配** - 正确识别 `[main.lyric.taskbar]` section 并保存配置
+- 🔧 **修复字体对象重建** - 配置改变时自动重新创建字体对象
+
+#### 📚 文档
+- 📝 更新 README 说明支持 Windows 10
+- 📝 添加 TrayS 项目到参考致谢
+
+#### 🔧 技术细节
+- DLL 端实现动态字体重建机制
+- Go 端实现配置文件自动保存逻辑
+- 优化 GDI 文本渲染参数
 
 ### v0.1.0 (2025)
 
